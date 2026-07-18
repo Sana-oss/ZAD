@@ -1,0 +1,6 @@
+{
+  "name": "ZAD (زاد)",
+  "description": "A calm, minimal, distraction-free Islamic remembrance platform focused on authentic Adhkar, Quran, and Prayer Times.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

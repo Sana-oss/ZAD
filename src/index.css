@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-accent-gold: var(--accent-gold);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border-custom: var(--border-custom);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  
+  --font-sans: "Inter", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-arabic: var(--font-family-arabic, "IBM Plex Sans Arabic"), "Tajawal", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --animate-pulse-subtle: pulse-subtle 2s infinite ease-in-out;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(0.98); }
+}
+
+:root {
+  --background: #F9F8F4;
+  --surface: #FDFDFB;
+  --surface-muted: #F3F2EB;
+  --border-custom: #EAE7DE;
+  --text-primary: #1A1A1A;
+  --text-secondary: #7C7464;
+  
+  --primary: #3A5A40;
+  --primary-hover: #2D4632;
+  --secondary: #7C7464;
+  --accent-gold: #D4A017;
+  
+  --font-family-arabic: "IBM Plex Sans Arabic", sans-serif;
+}
+
+.dark {
+  --background: #181C1A;
+  --surface: #242A27;
+  --surface-muted: #2D3531;
+  --border-custom: #39443E;
+  --text-primary: #F4F6F5;
+  --text-secondary: #9AADA1;
+  
+  --primary: #5F8567;
+  --primary-hover: #4D6D53;
+  --secondary: #9AADA1;
+  --accent-gold: #E5B842;
+}
+
+/* Custom layout rules and animations */
+body {
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Arabic typography styling */
+.arabic-text {
+  font-family: var(--font-family-arabic, "IBM Plex Sans Arabic"), "Tajawal", sans-serif;
+  line-height: 1.8;
+  direction: rtl;
+}
+
+/* Scrollbar customizations */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-custom);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Smooth transitions */
+.transition-all-custom {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Ripple / click animation utility */
+.active-press:active {
+  transform: scale(0.97);
+}
