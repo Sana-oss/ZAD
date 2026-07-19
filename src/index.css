@@ -1,6 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'KFGQPC Uthmanic Hafs';
+  src: url('./assets/fonts/KFGQPC-Uthmanic-Hafs.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
@@ -14,6 +22,7 @@
   
   --font-sans: "Inter", "IBM Plex Sans Arabic", system-ui, sans-serif;
   --font-arabic: var(--font-family-arabic, "IBM Plex Sans Arabic"), "Tajawal", sans-serif;
+  --font-quran: "KFGQPC Uthmanic Hafs", serif;
   --font-mono: "JetBrains Mono", monospace;
   
   --animate-pulse-subtle: pulse-subtle 2s infinite ease-in-out;
@@ -68,6 +77,29 @@ body {
   font-family: var(--font-family-arabic, "IBM Plex Sans Arabic"), "Tajawal", sans-serif;
   line-height: 1.8;
   direction: rtl;
+}
+
+/* Quranic typography styling */
+.quran-text {
+  font-family: "KFGQPC Uthmanic Hafs", serif;
+  direction: rtl;
+  text-align: right;
+  line-height: 2.5;
+  word-spacing: 5px;
+  letter-spacing: 0;
+  font-weight: normal !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-variant-ligatures: common-ligatures discretionary-ligatures historical-ligatures contextual;
+  font-feature-settings: "ccmp" 1, "locl" 1, "rlig" 1, "calt" 1, "mset" 1;
+  text-rendering: optimizeLegibility;
+}
+
+/* Eye-safe soft warm Quran text color on dark backgrounds to reduce fatigue */
+.dark .quran-text,
+.dark #mushaf-verses-continuous .text-text-primary,
+.dark #mushaf-verses-stacked .text-text-primary {
+  color: #F3F4F1 !important;
 }
 
 /* Scrollbar customizations */

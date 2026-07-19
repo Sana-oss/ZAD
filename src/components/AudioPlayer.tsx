@@ -128,7 +128,8 @@ export const AudioPlayer: React.FC = () => {
     if (rec === 'abdulbasit') recPath = 'Abdul_Basit_Murattal_192kbps';
     if (rec === 'husary') recPath = 'Husary_128kbps';
 
-    return `https://everyayah.com/data/${recPath}/${pad3(surah)}${pad3(verse)}.mp3`;
+    const base = 'https://everyayah.com/data';
+    return `${base}/${recPath}/${pad3(surah)}${pad3(verse)}.mp3`;
   };
 
   const playCurrent = (audio: any, startRepeat: number, totalRepeats: number) => {
@@ -136,8 +137,13 @@ export const AudioPlayer: React.FC = () => {
 
     if (audio.isQuran || audio.audioUrl) {
       // Play via HTML5 Audio
-      const url = audio.audioUrl || getQuranUrl(audio.id, reciter);
-      const audioObj = new Audio(url);
+      let url = audio.audioUrl;
+      if (!url) {
+        url = getQuranUrl(audio.id, reciter);
+      }
+      
+      const audioObj = new Audio();
+      audioObj.src = url;
       audioRef.current = audioObj;
       audioObj.playbackRate = playbackSpeed;
       audioObj.muted = isMuted;
@@ -166,7 +172,8 @@ export const AudioPlayer: React.FC = () => {
       audioObj.play()
         .then(() => setAudioPlaying(true))
         .catch((err) => {
-          console.error('Audio playback failed, falling back to TTS', err);
+          console.error(`Audio playback failed for URL: ${url}`, err);
+          console.warn('All audio mirrors failed. Falling back to TTS.');
           playTTS(audio.text, startRepeat, totalRepeats);
         });
     } else {

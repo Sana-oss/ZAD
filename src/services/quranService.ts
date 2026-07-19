@@ -151,22 +151,33 @@ export class QuranComProvider implements IQuranProvider {
     if (cached) return cached;
 
     try {
-      // Fetch text_uthmani and translations from Quran.com
+      // Fetch text_qpc_hafs and translations from Quran.com
       // Setting per_page to 300 to fetch all verses of any surah in a single request (longest is Al-Baqarah with 286 verses)
       const res = await fetch(
-        `${this.baseUrl}/verses/by_chapter/${chapterId}?language=ar&words=false&translations=${translationId}&fields=text_uthmani&per_page=300`
+        `${this.baseUrl}/verses/by_chapter/${chapterId}?language=ar&words=false&translations=${translationId}&fields=text_qpc_hafs&per_page=300`
       );
       if (!res.ok) throw new Error('Failed to fetch verses');
       const data = await res.json();
 
-      const verses: QuranVerse[] = data.verses.map((v: any) => ({
-        id: v.id,
-        verseNumber: v.verse_number,
-        verseKey: v.verse_key,
-        textUthmani: v.text_uthmani,
-        translationText: v.translations?.[0]?.text || '',
-        audioUrl: `https://everyayah.com/data/Alafasy_128kbps/${String(chapterId).padStart(3, '0')}${String(v.verse_number).padStart(3, '0')}.mp3`,
-      }));
+      const verses: QuranVerse[] = data.verses.map((v: any) => {
+        // Sanitize the text:
+        // 1. Remove the appended verse number from text_qpc_hafs (e.g., " ٥")
+        // 2. Remove ZWNJ, ZWJ, ZWS which break text shaping
+        // 3. Remove Tatweel (Kashida)
+        let cleanText = v.text_qpc_hafs || '';
+        cleanText = cleanText.replace(/[\s\u00A0]*[\u0660-\u0669]+$/, '');
+        cleanText = cleanText.replace(/[\u200B-\u200D\uFEFF]/g, '');
+        cleanText = cleanText.replace(/\u0640/g, '');
+
+        return {
+          id: v.id,
+          verseNumber: v.verse_number,
+          verseKey: v.verse_key,
+          textUthmani: cleanText,
+          translationText: v.translations?.[0]?.text || '',
+          audioUrl: `https://everyayah.com/data/Alafasy_128kbps/${String(chapterId).padStart(3, '0')}${String(v.verse_number).padStart(3, '0')}.mp3`,
+        };
+      });
 
       QuranCache.set(cacheKey, verses);
       return verses;

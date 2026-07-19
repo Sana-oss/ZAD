@@ -50,7 +50,7 @@ export const AyaCard: React.FC = () => {
 
       {/* Verse Text */}
       <p 
-        className="arabic-text my-6 text-xl sm:text-2xl md:text-3xl font-bold leading-relaxed text-white"
+        className="quran-text my-6 text-xl sm:text-2xl md:text-3xl leading-relaxed text-white"
         style={{ textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
         id="aya-verse-text"
       >
