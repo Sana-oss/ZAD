@@ -9,6 +9,7 @@ import { Navigation } from './components/Navigation';
 import { HomeSection } from './components/HomeSection';
 import { AdhkarSection } from './components/AdhkarSection';
 import { QuranSection } from './components/QuranSection';
+import { HadithSection } from './components/HadithSection';
 import { PrayerTimesCard } from './components/PrayerTimesCard';
 import { SettingsSection } from './components/SettingsSection';
 import { Footer } from './components/Footer';
@@ -25,6 +26,8 @@ const AppContent: React.FC = () => {
         return <AdhkarSection />;
       case 'quran':
         return <QuranSection />;
+      case 'hadith':
+        return <HadithSection />;
       case 'prayer':
         return (
           <div className="mx-auto max-w-xl px-4 py-8" id="prayer-page-wrapper">

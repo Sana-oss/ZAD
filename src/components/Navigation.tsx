@@ -8,6 +8,7 @@ export const Navigation: React.FC = () => {
 
   const navItems = [
     { id: 'settings', labelAr: 'الإعدادات', labelEn: 'Settings', icon: Settings },
+    { id: 'hadith', labelAr: 'الحديث', labelEn: 'Hadith', icon: BookOpen },
     { id: 'prayer', labelAr: 'مواقيت الصلاة', labelEn: 'Prayer Times', icon: Compass },
     { id: 'quran', labelAr: 'القرآن', labelEn: 'Quran', icon: BookOpen },
     { id: 'adhkar', labelAr: 'الأذكار', labelEn: 'Adhkar', icon: Book },

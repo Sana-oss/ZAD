@@ -10,7 +10,8 @@ import {
   BookText, 
   Globe, 
   ChevronRight,
-  AlignJustify
+  AlignJustify,
+  ArrowUp
 } from 'lucide-react';
 import { quranService, QuranChapter, QuranVerse, TafsirData, QuranSearchResult } from '../services/quranService';
 
@@ -66,6 +67,7 @@ export const QuranSection: React.FC = () => {
   const [isSavedProgress, setIsSavedProgress] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   useEffect(() => {
     // Set sidebar closed on mobile/tablet initially for optimized initial reading experience
@@ -79,6 +81,9 @@ export const QuranSection: React.FC = () => {
     const handleScroll = () => {
       const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
       const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      
+      setShowBackToTop(winScroll > 400);
+
       if (height <= 0) {
         setScrollProgress(0);
       } else {
@@ -228,6 +233,11 @@ export const QuranSection: React.FC = () => {
     if (fontSizePercent <= 120) return 'text-xl';
     if (fontSizePercent <= 140) return 'text-2xl';
     return 'text-3xl';
+  };
+
+  // 8. Scroll to top utility
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -984,6 +994,17 @@ export const QuranSection: React.FC = () => {
 
       </div>
 
+      {/* Back to Top FAB */}
+      {showBackToTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-6 right-6 lg:bottom-10 lg:right-10 p-3 rounded-full bg-primary text-white shadow-lg hover:bg-primary-hover hover:scale-105 transition-all z-50 animate-fade-in flex items-center justify-center group"
+          title={isAr ? 'العودة للأعلى' : 'Back to top'}
+          id="btn-back-to-top"
+        >
+          <ArrowUp className="h-5 w-5" />
+        </button>
+      )}
     </div>
   );
 };

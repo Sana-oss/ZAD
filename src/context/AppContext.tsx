@@ -2,8 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserSettings, Dhikr } from '../types';
 
 interface AppContextType {
-  activeTab: 'home' | 'adhkar' | 'quran' | 'prayer' | 'settings';
-  setActiveTab: (tab: 'home' | 'adhkar' | 'quran' | 'prayer' | 'settings') => void;
+  activeTab: 'home' | 'adhkar' | 'quran' | 'prayer' | 'settings' | 'hadith';
+  setActiveTab: (tab: 'home' | 'adhkar' | 'quran' | 'prayer' | 'settings' | 'hadith') => void;
   activeCategory: 'morning' | 'evening' | 'sleep' | 'prayer_after' | null;
   setActiveCategory: (cat: 'morning' | 'evening' | 'sleep' | 'prayer_after' | null) => void;
   settings: UserSettings;
@@ -52,7 +52,7 @@ const DEFAULT_SETTINGS: UserSettings = {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeTab, setActiveTab] = useState<'home' | 'adhkar' | 'quran' | 'prayer' | 'settings'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'adhkar' | 'quran' | 'prayer' | 'settings' | 'hadith'>('home');
   const [activeCategory, setActiveCategory] = useState<'morning' | 'evening' | 'sleep' | 'prayer_after' | null>(null);
   const [quranSearchQuery, setQuranSearchQuery] = useState('');
   const [adhkarSearchQuery, setAdhkarSearchQuery] = useState('');
