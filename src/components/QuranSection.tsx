@@ -175,7 +175,8 @@ export const QuranSection: React.FC = () => {
     setLoadingTafsir(true);
     setTafsirData(null);
     try {
-      const data = await quranService.getTafsir(selectedSurahNum, verse.verseNumber);
+      const tafsirId = isAr ? 14 : 169; // 14 for Arabic Ibn Kathir, 169 for English Ibn Kathir
+      const data = await quranService.getTafsir(selectedSurahNum, verse.verseNumber, tafsirId);
       setTafsirData(data);
     } catch (err) {
       console.error('Tafsir loading failed', err);
@@ -497,15 +498,16 @@ export const QuranSection: React.FC = () => {
                           {/* Tafsir Details trigger */}
                           <button
                             onClick={() => handleViewTafsir(v)}
-                            className={`p-2 rounded-full border transition-colors cursor-pointer ${
+                            className={`flex items-center gap-1.5 p-2 px-3 rounded-full border transition-colors cursor-pointer ${
                               isSelectedForTafsir
                                 ? 'bg-primary text-white border-primary shadow-sm'
                                 : 'bg-surface border-border-custom text-text-secondary hover:text-primary hover:bg-primary/5'
                             }`}
-                            title="تفسير الآية (السعدي)"
+                            title="تفسير الآية (ابن كثير)"
                             id={`btn-tafsir-${v.verseNumber}`}
                           >
                             <BookText className="h-3.5 w-3.5" />
+                            <span className="text-[10px] font-bold arabic-text">{isAr ? 'التفسير' : 'View Tafsir'}</span>
                           </button>
 
                           {/* Mark reading progress to this verse */}
@@ -572,7 +574,7 @@ export const QuranSection: React.FC = () => {
                             >
                               إغلاق التفسير ×
                             </button>
-                            <span className="arabic-text text-xs font-bold text-primary">تفسير السعدي (تيسير الكريم الرحمن)</span>
+                            <span className="arabic-text text-xs font-bold text-primary">تفسير ابن كثير</span>
                           </div>
                           {loadingTafsir ? (
                             <div className="flex items-center justify-center py-4">
@@ -665,12 +667,13 @@ export const QuranSection: React.FC = () => {
                           {/* Tafsir Button */}
                           <button
                             onClick={() => handleViewTafsir(v)}
-                            className={`p-1.5 rounded-full hover:bg-primary/10 transition-colors cursor-pointer ${
-                              isSelectedForTafsir ? 'text-primary' : 'text-text-secondary hover:text-primary'
+                            className={`flex items-center gap-1 p-1.5 px-2.5 rounded-full hover:bg-primary/10 transition-colors cursor-pointer ${
+                              isSelectedForTafsir ? 'text-primary bg-primary/10 font-bold' : 'text-text-secondary hover:text-primary'
                             }`}
                             title="التفسير"
                           >
                             <BookText className="h-3.5 w-3.5" />
+                            <span className="text-[9px] font-bold arabic-text hidden sm:inline-block">{isAr ? 'التفسير' : 'Tafsir'}</span>
                           </button>
 
                           {/* Save Progress Button */}
@@ -713,7 +716,7 @@ export const QuranSection: React.FC = () => {
                         إغلاق التفسير ×
                       </button>
                       <span className="arabic-text text-xs font-bold text-primary">
-                        تفسير السعدي (الآية {activeTafsirVerse.verseNumber})
+                        تفسير ابن كثير (الآية {activeTafsirVerse.verseNumber})
                       </span>
                     </div>
                     {loadingTafsir ? (
