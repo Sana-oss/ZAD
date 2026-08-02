@@ -1,4 +1,5 @@
 import { QURAN_SURAS } from '../data/quran';
+import { JUZ_INFO } from '../data/juzMapping';
 
 export interface QuranChapter {
   id: number;
@@ -19,6 +20,8 @@ export interface QuranVerse {
   textUthmani: string;
   translationText?: string;
   audioUrl?: string;
+  pageNumber?: number;
+  juzNumber?: number;
 }
 
 export interface QuranChapterDetail extends QuranChapter {
@@ -36,6 +39,19 @@ export interface QuranSearchResult {
   translationText: string;
 }
 
+export interface JuzItem {
+  juzNumber: number;
+  verseKeyStart: string;
+  verseKeyEnd: string;
+  nameAr: string;
+  surahNameAr: string;
+}
+
+export interface PageInfo {
+  pageNumber: number;
+  verseKeyStart?: string;
+}
+
 export interface IQuranProvider {
   getChapters(): Promise<QuranChapter[]>;
   getChapterDetails(chapterId: number): Promise<QuranChapterDetail>;
@@ -43,11 +59,16 @@ export interface IQuranProvider {
   getTafsir(chapterId: number, verseNumber: number, tafsirId?: number): Promise<TafsirData>;
   getChapterAudio(chapterId: number, reciterId?: number): Promise<string>;
   searchQuran(query: string): Promise<QuranSearchResult[]>;
+  getJuzs(): Promise<JuzItem[]>;
+  getJuzVerses(juzNumber: number, translationId?: number): Promise<QuranVerse[]>;
+  getPageVerses(pageNumber: number, translationId?: number): Promise<QuranVerse[]>;
 }
 
 // Simple In-Memory / LocalStorage Cache
 class QuranCache {
-  private static PREFIX = 'quran_cache_';
+  // v2: bumped to invalidate old cached verse text that had tatweel stripped
+  // (was causing broken glyph shaping) — forces a fresh fetch after the fix.
+  private static PREFIX = 'quran_cache_v2_';
 
   static get<T>(key: string): T | null {
     try {
@@ -164,10 +185,16 @@ export class QuranComProvider implements IQuranProvider {
         // 1. Remove the appended verse number from text_qpc_hafs (e.g., " ٥")
         // 2. Remove ZWNJ, ZWJ, ZWS which break text shaping
         // 3. Remove Tatweel (Kashida)
+        // Sanitize the text:
+        // 1. Remove the appended verse number from text_qpc_hafs (e.g., " ٥")
+        // 2. Remove ZWNJ, ZWJ, ZWS (not part of standard Uthmani Unicode, safe to drop)
+        // NOTE: Tatweel (U+0640) is intentionally left in place. It is placed after
+        // certain joining letters in the qpc_hafs encoding to correctly position
+        // diacritics (harakat) so they don't render on top of the letter. Stripping
+        // it breaks glyph shaping when using the matching QPC Hafs font.
         let cleanText = v.text_qpc_hafs || '';
         cleanText = cleanText.replace(/[\s\u00A0]*[\u0660-\u0669]+$/, '');
         cleanText = cleanText.replace(/[\u200B-\u200D\uFEFF]/g, '');
-        cleanText = cleanText.replace(/\u0640/g, '');
 
         return {
           id: v.id,
@@ -253,6 +280,123 @@ export class QuranComProvider implements IQuranProvider {
       throw err;
     }
   }
+
+  async getJuzs(): Promise<JuzItem[]> {
+    const cacheKey = 'juzs';
+    const cached = QuranCache.get<JuzItem[]>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const res = await fetch(`${this.baseUrl}/juzs?language=ar`);
+      if (!res.ok) throw new Error('Failed to fetch juzs');
+      const data = await res.json();
+
+      // Deduplicate by juz_number (API returns duplicates)
+      const seen = new Set<number>();
+      const juzs: JuzItem[] = [];
+      for (const j of data.juzs || []) {
+        if (!seen.has(j.juz_number)) {
+          seen.add(j.juz_number);
+          juzs.push({
+            juzNumber: j.juz_number,
+            verseKeyStart: j.verse_mapping ? Object.entries(j.verse_mapping)[0]?.join(':') || '' : '',
+            verseKeyEnd: j.verse_mapping ? Object.entries(j.verse_mapping).slice(-1)[0]?.join(':') || '' : '',
+            nameAr: '',
+            surahNameAr: '',
+          });
+        }
+      }
+
+      // Merge in Arabic names from static mapping
+      for (const j of juzs) {
+        const staticJuz = JUZ_INFO.find((ji) => ji.juzNumber === j.juzNumber);
+        if (staticJuz) {
+          j.nameAr = staticJuz.nameAr;
+          j.surahNameAr = staticJuz.surahNameAr;
+        }
+      }
+
+      QuranCache.set(cacheKey, juzs);
+      return juzs;
+    } catch (err) {
+      console.error('Quran.com API Error fetching juzs:', err);
+      throw err;
+    }
+  }
+
+  async getJuzVerses(juzNumber: number, translationId = 131): Promise<QuranVerse[]> {
+    const cacheKey = `juz_${juzNumber}_verses_trans_${translationId}`;
+    const cached = QuranCache.get<QuranVerse[]>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const res = await fetch(
+        `${this.baseUrl}/verses/by_juz/${juzNumber}?language=ar&words=false&translations=${translationId}&fields=text_qpc_hafs&per_page=600`
+      );
+      if (!res.ok) throw new Error('Failed to fetch juz verses');
+      const data = await res.json();
+
+      const verses: QuranVerse[] = data.verses.map((v: any) => {
+        // Tatweel (U+0640) is intentionally left in place — see getVerses() for why.
+        let cleanText = v.text_qpc_hafs || '';
+        cleanText = cleanText.replace(/[\s\u00A0]*[\u0660-\u0669]+$/, '');
+        cleanText = cleanText.replace(/[\u200B-\u200D\uFEFF]/g, '');
+        return {
+          id: v.id,
+          verseNumber: v.verse_number,
+          verseKey: v.verse_key,
+          textUthmani: cleanText,
+          translationText: v.translations?.[0]?.text || '',
+          audioUrl: '',
+          pageNumber: v.page_number,
+          juzNumber: v.juz_number,
+        };
+      });
+
+      QuranCache.set(cacheKey, verses);
+      return verses;
+    } catch (err) {
+      console.error(`Quran.com API Error fetching juz ${juzNumber} verses:`, err);
+      throw err;
+    }
+  }
+
+  async getPageVerses(pageNumber: number, translationId = 131): Promise<QuranVerse[]> {
+    const cacheKey = `page_${pageNumber}_verses_trans_${translationId}`;
+    const cached = QuranCache.get<QuranVerse[]>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const res = await fetch(
+        `${this.baseUrl}/verses/by_page/${pageNumber}?language=ar&words=false&translations=${translationId}&fields=text_qpc_hafs&per_page=100`
+      );
+      if (!res.ok) throw new Error('Failed to fetch page verses');
+      const data = await res.json();
+
+      const verses: QuranVerse[] = data.verses.map((v: any) => {
+        // Tatweel (U+0640) is intentionally left in place — see getVerses() for why.
+        let cleanText = v.text_qpc_hafs || '';
+        cleanText = cleanText.replace(/[\s\u00A0]*[\u0660-\u0669]+$/, '');
+        cleanText = cleanText.replace(/[\u200B-\u200D\uFEFF]/g, '');
+        return {
+          id: v.id,
+          verseNumber: v.verse_number,
+          verseKey: v.verse_key,
+          textUthmani: cleanText,
+          translationText: v.translations?.[0]?.text || '',
+          audioUrl: '',
+          pageNumber: v.page_number,
+          juzNumber: v.juz_number,
+        };
+      });
+
+      QuranCache.set(cacheKey, verses);
+      return verses;
+    } catch (err) {
+      console.error(`Quran.com API Error fetching page ${pageNumber} verses:`, err);
+      throw err;
+    }
+  }
 }
 
 // 2. Offline Fallback Local Provider
@@ -329,6 +473,66 @@ export class LocalQuranProvider implements IQuranProvider {
     }
     return results;
   }
+
+  async getJuzs(): Promise<JuzItem[]> {
+    return JUZ_INFO.map((j) => ({
+      juzNumber: j.juzNumber,
+      verseKeyStart: j.startSurah + ':' + j.startVerse,
+      verseKeyEnd: j.endSurah + ':' + j.endVerse,
+      nameAr: j.nameAr,
+      surahNameAr: j.surahNameAr,
+    }));
+  }
+
+  async getJuzVerses(juzNumber: number): Promise<QuranVerse[]> {
+    const juz = JUZ_INFO.find((j) => j.juzNumber === juzNumber);
+    if (!juz) throw new Error(`Juz ${juzNumber} not found in local data`);
+
+    const verses: QuranVerse[] = [];
+    for (let s = juz.startSurah; s <= juz.endSurah; s++) {
+      const sura = QURAN_SURAS.find((q) => q.number === s);
+      if (!sura) continue;
+      const startV = s === juz.startSurah ? juz.startVerse : 1;
+      const endV = s === juz.endSurah ? juz.endVerse : sura.verses.length;
+      for (let v = startV; v <= endV; v++) {
+        const verseData = sura.verses.find((vv) => vv.number === v);
+        if (verseData) {
+          verses.push({
+            id: verseData.number,
+            verseNumber: verseData.number,
+            verseKey: `${s}:${verseData.number}`,
+            textUthmani: verseData.text,
+            translationText: '',
+            audioUrl: `https://everyayah.com/data/Alafasy_128kbps/${String(s).padStart(3, '0')}${String(verseData.number).padStart(3, '0')}.mp3`,
+            pageNumber: 0,
+            juzNumber,
+          });
+        }
+      }
+    }
+    return verses;
+  }
+
+  async getPageVerses(pageNumber: number): Promise<QuranVerse[]> {
+    const { getPageLocation } = await import('../data/juzMapping');
+    const location = getPageLocation(pageNumber);
+    const sura = QURAN_SURAS.find((q) => q.number === location.surah);
+    if (!sura) throw new Error(`Surah ${location.surah} not found in local data`);
+
+    return sura.verses
+      .filter((v) => v.number >= location.verse)
+      .slice(0, 50)
+      .map((vv) => ({
+        id: vv.number,
+        verseNumber: vv.number,
+        verseKey: `${location.surah}:${vv.number}`,
+        textUthmani: vv.text,
+        translationText: '',
+        audioUrl: `https://everyayah.com/data/Alafasy_128kbps/${String(location.surah).padStart(3, '0')}${String(vv.number).padStart(3, '0')}.mp3`,
+        pageNumber,
+        juzNumber: 0,
+      }));
+  }
 }
 
 // 3. Main Replaceable Service Manager
@@ -400,6 +604,36 @@ export class QuranService {
       console.warn(`Switching to LocalQuranProvider fallback for Quran search`);
       const fallback = new LocalQuranProvider();
       return await fallback.searchQuran(query);
+    }
+  }
+
+  async getJuzs(): Promise<JuzItem[]> {
+    try {
+      return await this.provider.getJuzs();
+    } catch (e) {
+      console.warn('Switching to LocalQuranProvider fallback for juzs');
+      const fallback = new LocalQuranProvider();
+      return await fallback.getJuzs();
+    }
+  }
+
+  async getJuzVerses(juzNumber: number, translationId?: number): Promise<QuranVerse[]> {
+    try {
+      return await this.provider.getJuzVerses(juzNumber, translationId);
+    } catch (e) {
+      console.warn(`Switching to LocalQuranProvider fallback for juz ${juzNumber} verses`);
+      const fallback = new LocalQuranProvider();
+      return await fallback.getJuzVerses(juzNumber);
+    }
+  }
+
+  async getPageVerses(pageNumber: number, translationId?: number): Promise<QuranVerse[]> {
+    try {
+      return await this.provider.getPageVerses(pageNumber, translationId);
+    } catch (e) {
+      console.warn(`Switching to LocalQuranProvider fallback for page ${pageNumber} verses`);
+      const fallback = new LocalQuranProvider();
+      return await fallback.getPageVerses(pageNumber);
     }
   }
 }

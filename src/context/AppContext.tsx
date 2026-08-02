@@ -25,6 +25,10 @@ interface AppContextType {
   setPlayingAudio: (audio: { id: string; text: string; title: string; category: string; audioUrl?: string; isQuran?: boolean } | null) => void;
   audioPlaying: boolean;
   setAudioPlaying: (playing: boolean) => void;
+  audioQueue: { id: string; text: string; title: string; category: string; audioUrl?: string; isQuran?: boolean }[] | null;
+  setAudioQueue: (queue: { id: string; text: string; title: string; category: string; audioUrl?: string; isQuran?: boolean }[] | null) => void;
+  audioQueueIndex: number;
+  setAudioQueueIndex: (idx: number) => void;
   playbackSpeed: number;
   setPlaybackSpeed: (speed: number) => void;
   reciter: 'alafasy' | 'abdulbasit' | 'husary';
@@ -47,6 +51,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   },
   masbahaCount: 0,
   masbahaPhrase: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ',
+  quranViewMode: 'surah',
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -59,6 +64,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [dhikrCounts, setDhikrCounts] = useState<Record<string, number>>({});
   const [playingAudio, setPlayingAudio] = useState<{ id: string; text: string; title: string; category: string; audioUrl?: string; isQuran?: boolean } | null>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [audioQueue, setAudioQueue] = useState<{ id: string; text: string; title: string; category: string; audioUrl?: string; isQuran?: boolean }[] | null>(null);
+  const [audioQueueIndex, setAudioQueueIndex] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [reciter, setReciter] = useState<'alafasy' | 'abdulbasit' | 'husary'>('alafasy');
 
@@ -170,6 +177,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setPlayingAudio,
         audioPlaying,
         setAudioPlaying,
+        audioQueue,
+        setAudioQueue,
+        audioQueueIndex,
+        setAudioQueueIndex,
         playbackSpeed,
         setPlaybackSpeed,
         reciter,

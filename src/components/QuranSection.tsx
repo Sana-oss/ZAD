@@ -11,9 +11,15 @@ import {
   Globe, 
   ChevronRight,
   AlignJustify,
-  ArrowUp
+  ArrowUp,
+  List,
+  ChevronLeft,
+  Layers,
+  Play
 } from 'lucide-react';
-import { quranService, QuranChapter, QuranVerse, TafsirData, QuranSearchResult } from '../services/quranService';
+import { quranService, QuranChapter, QuranVerse, TafsirData, QuranSearchResult, JuzItem } from '../services/quranService';
+import { JUZ_INFO, TOTAL_PAGES } from '../data/juzMapping';
+import MPage from './MushafPageView';
 
 const VerseMarker: React.FC<{ number: number }> = ({ number }) => {
   return (
@@ -43,7 +49,11 @@ export const QuranSection: React.FC = () => {
     setPlayingAudio,
     audioPlaying,
     setAudioPlaying,
-    playingAudio
+    playingAudio,
+    audioQueue,
+    setAudioQueue,
+    audioQueueIndex,
+    setAudioQueueIndex
   } = useApp();
 
   const [chapters, setChapters] = useState<QuranChapter[]>([]);
@@ -53,6 +63,16 @@ export const QuranSection: React.FC = () => {
   const [loadingChapters, setLoadingChapters] = useState(true);
   const [loadingVerses, setLoadingVerses] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Juz/Page view mode state
+  const [viewMode, setViewMode] = useState<'surah' | 'juz' | 'page' | 'mushaf'>(
+    (settings.quranViewMode as 'surah' | 'juz' | 'page' | 'mushaf') || 'surah'
+  );
+  const [selectedJuzNum, setSelectedJuzNum] = useState<number>(1);
+  const [selectedPageNum, setSelectedPageNum] = useState<number>(1);
+  const [pageInput, setPageInput] = useState<string>('');
+  const [juzsList, setJuzsList] = useState<JuzItem[]>([]);
+  const [loadingJuzs, setLoadingJuzs] = useState(false);
 
   // Hover, active and copied state for individual verses (for continuous flow and popup actions)
   const [hoveredVerseNumber, setHoveredVerseNumber] = useState<number | null>(null);
@@ -129,23 +149,58 @@ export const QuranSection: React.FC = () => {
     fetchChapters();
   }, [isAr]);
 
-  // 2. Fetch Verses whenever selectedSurahNum changes
+  // Persist viewMode to settings whenever it changes
   useEffect(() => {
+    updateSettings({ quranViewMode: viewMode });
+  }, [viewMode]);
+
+  // Fetch Juz list on mount
+  useEffect(() => {
+    const fetchJuzs = async () => {
+      setLoadingJuzs(true);
+      try {
+        const data = await quranService.getJuzs();
+        setJuzsList(data);
+      } catch (err) {
+        console.error('Failed to load juzs list', err);
+      } finally {
+        setLoadingJuzs(false);
+      }
+    };
+    fetchJuzs();
+  }, []);
+
+  // 2. Fetch Verses based on current view mode
+  useEffect(() => {
+    if (viewMode === 'mushaf') {
+      setVerses([]);
+      setActiveTafsirVerse(null);
+      setTafsirData(null);
+      setLoadingVerses(false);
+      return;
+    }
     const fetchVerses = async () => {
       setLoadingVerses(true);
-      setActiveTafsirVerse(null); // Reset active Tafsir on Surah switch
+      setActiveTafsirVerse(null);
       setTafsirData(null);
       try {
-        const data = await quranService.getVerses(selectedSurahNum);
+        let data: QuranVerse[];
+        if (viewMode === 'juz') {
+          data = await quranService.getJuzVerses(selectedJuzNum);
+        } else if (viewMode === 'page') {
+          data = await quranService.getPageVerses(selectedPageNum);
+        } else {
+          data = await quranService.getVerses(selectedSurahNum);
+        }
         setVerses(data);
       } catch (err) {
-        console.error(`Failed to load verses for surah ${selectedSurahNum}`, err);
+        console.error(`Failed to load verses for ${viewMode}`, err);
       } finally {
         setLoadingVerses(false);
       }
     };
     fetchVerses();
-  }, [selectedSurahNum]);
+  }, [viewMode, selectedSurahNum, selectedJuzNum, selectedPageNum]);
 
   // 3. Trigger global text search
   const handleGlobalSearch = async () => {
@@ -192,19 +247,42 @@ export const QuranSection: React.FC = () => {
 
   // 6. Play individual verse audio
   const handlePlayVerse = (verse: QuranVerse) => {
-    const isPlayingCurrent = playingAudio && playingAudio.id === `quran_v_${selectedSurahNum}_${verse.verseNumber}`;
+    const verseSurahNum = parseInt(verse.verseKey.split(':')[0], 10) || selectedSurahNum;
+    const verseSurah = chapters.find((c) => c.id === verseSurahNum);
+    const isPlayingCurrent = playingAudio && playingAudio.id === `quran_v_${verseSurahNum}_${verse.verseNumber}`;
     if (isPlayingCurrent) {
       setAudioPlaying(!audioPlaying);
     } else {
+      setAudioQueue(null);
+      setAudioQueueIndex(0);
       setPlayingAudio({
-        id: `quran_v_${selectedSurahNum}_${verse.verseNumber}`,
+        id: `quran_v_${verseSurahNum}_${verse.verseNumber}`,
         text: verse.textUthmani,
-        title: `${isAr ? 'سورة' : 'Sura'} ${selectedSurah?.nameArabic || selectedSurah?.nameSimple} - ${isAr ? 'آية' : 'Ayah'} ${verse.verseNumber}`,
+        title: `${isAr ? 'سورة' : 'Sura'} ${verseSurah?.nameArabic || verseSurah?.nameSimple || ''} - ${isAr ? 'آية' : 'Ayah'} ${verse.verseNumber}`,
         category: 'quran',
         audioUrl: verse.audioUrl,
         isQuran: true
       });
     }
+  };
+
+  const handlePlayAll = () => {
+    if (!verses.length) return;
+    const queue = verses.map((v) => {
+      const surahNum = parseInt(v.verseKey.split(':')[0], 10) || selectedSurahNum;
+      const surah = chapters.find((c) => c.id === surahNum);
+      return {
+        id: `quran_v_${surahNum}_${v.verseNumber}`,
+        text: v.textUthmani,
+        title: `${isAr ? 'سورة' : 'Sura'} ${surah?.nameArabic || surah?.nameSimple || ''} - ${isAr ? 'آية' : 'Ayah'} ${v.verseNumber}`,
+        category: 'quran' as const,
+        audioUrl: v.audioUrl,
+        isQuran: true
+      };
+    });
+    setAudioQueue(queue);
+    setAudioQueueIndex(0);
+    setPlayingAudio(queue[0]);
   };
 
   // 7. Copy verse text with elegant feedback
@@ -220,6 +298,7 @@ export const QuranSection: React.FC = () => {
 
   // Helpers
   const selectedSurah = chapters.find((c) => c.id === selectedSurahNum);
+  const selectedJuzInfo = JUZ_INFO[selectedJuzNum - 1] || null;
 
   const filteredChapters = chapters.filter((c) => {
     if (searchMode === 'global' || !quranSearchQuery) return true;
@@ -309,6 +388,58 @@ export const QuranSection: React.FC = () => {
               )}
             </div>
 
+            {/* View Mode Toggle: Surah / Juz / Page */}
+            <div className="flex rounded-full border border-border-custom p-0.5 bg-surface-muted" id="view-mode-toggle">
+              <button
+                onClick={() => setViewMode('surah')}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold arabic-text transition-all cursor-pointer ${
+                  viewMode === 'surah' 
+                    ? 'bg-surface text-text-primary shadow-sm' 
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+                title={isAr ? 'عرض حسب السور' : 'View by Surah'}
+              >
+                <List className="h-3.5 w-3.5" />
+                <span>{isAr ? 'سور' : 'Surah'}</span>
+              </button>
+              <button
+                onClick={() => setViewMode('juz')}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold arabic-text transition-all cursor-pointer ${
+                  viewMode === 'juz' 
+                    ? 'bg-surface text-text-primary shadow-sm' 
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+                title={isAr ? 'عرض حسب الأجزاء' : 'View by Juz'}
+              >
+                <BookMarked className="h-3.5 w-3.5" />
+                <span>{isAr ? 'جزء' : 'Juz'}</span>
+              </button>
+              <button
+                onClick={() => setViewMode('page')}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold arabic-text transition-all cursor-pointer ${
+                  viewMode === 'page' 
+                    ? 'bg-surface text-text-primary shadow-sm' 
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+                title={isAr ? 'عرض حسب الصفحات' : 'View by Page'}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>{isAr ? 'صفحة' : 'Page'}</span>
+              </button>
+              <button
+                onClick={() => setViewMode('mushaf')}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold arabic-text transition-all cursor-pointer ${
+                  viewMode === 'mushaf' 
+                    ? 'bg-surface text-text-primary shadow-sm' 
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+                title={isAr ? 'عرض المصحف' : 'View Mushaf'}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                <span>{isAr ? 'مصحف' : 'Mushaf'}</span>
+              </button>
+            </div>
+
             {/* Reading Mode Toggle */}
             <div className="flex rounded-full border border-border-custom p-0.5 bg-surface-muted mx-1" id="reading-mode-toggle">
               <button
@@ -390,9 +521,27 @@ export const QuranSection: React.FC = () => {
               </button>
             </div>
 
+            {/* Play All Verses */}
+            <button
+              onClick={handlePlayAll}
+              disabled={!verses.length}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                !verses.length
+                  ? 'opacity-40 cursor-not-allowed'
+                  : 'bg-primary text-white hover:bg-primary-hover shadow-sm active-press'
+              }`}
+              title={isAr ? 'تشغيل الكل' : 'Play All Verses'}
+            >
+              <Play className="h-3.5 w-3.5" />
+              <span>{isAr ? 'تشغيل الكل' : 'Play All'}</span>
+            </button>
+
           </div>
 
           {/* Reading panel */}
+          {viewMode === 'mushaf' ? (
+            <MPage pageNumber={selectedPageNum} onPageChange={setSelectedPageNum} />
+          ) : (
           <div 
             className={`rounded-3xl border transition-all duration-300 p-6 sm:p-10 shadow-sm flex flex-col items-center relative overflow-visible min-h-[550px] ${
               quranTheme === 'cream' 
@@ -413,8 +562,8 @@ export const QuranSection: React.FC = () => {
               <BookOpen className="h-6 w-6 text-primary" />
             </div>
 
-            {/* Active Surah Title Block */}
-            {selectedSurah ? (
+            {/* Active Header Block - Mode aware */}
+            {viewMode === 'surah' && selectedSurah ? (
               <div className="text-center mb-8" id="mushaf-surah-header">
                 <h2 className="arabic-text text-2xl sm:text-3xl font-black text-primary" id="mushaf-surah-title">
                   سُورَةُ {selectedSurah.nameArabic}
@@ -423,19 +572,37 @@ export const QuranSection: React.FC = () => {
                   {isAr ? (selectedSurah.revelationPlace === 'makkah' ? 'مكية' : 'مدنية') : selectedSurah.revelationPlace.toUpperCase()} | {selectedSurah.versesCount} {isAr ? 'آيات' : 'Verses'}
                 </p>
               </div>
-            ) : (
+            ) : viewMode === 'surah' ? (
               <div className="text-center mb-8" id="mushaf-surah-header-fallback">
                 <h2 className="arabic-text text-2xl sm:text-3xl font-black text-primary">سُورَةُ الفَاتِحَة</h2>
               </div>
+            ) : viewMode === 'juz' ? (
+              <div className="text-center mb-8" id="mushaf-juz-header">
+                <h2 className="arabic-text text-2xl sm:text-3xl font-black text-primary">
+                  {JUZ_INFO[selectedJuzNum - 1]?.nameAr || `الجزء ${selectedJuzNum}`}
+                </h2>
+                <p className="arabic-text text-xs text-text-secondary mt-1 font-bold">
+                  {JUZ_INFO[selectedJuzNum - 1]?.surahNameAr || ''}
+                </p>
+              </div>
+            ) : (
+              <div className="text-center mb-8" id="mushaf-page-header">
+                <h2 className="arabic-text text-2xl sm:text-3xl font-black text-primary">
+                  {isAr ? 'الصفحة' : 'Page'} {selectedPageNum}
+                </h2>
+                <p className="arabic-text text-xs text-text-secondary mt-1 font-bold">
+                  {isAr ? `من أصل ${TOTAL_PAGES} صفحة` : `of ${TOTAL_PAGES}`}
+                </p>
+              </div>
             )}
 
-            {/* Surah Bismillah - Special standalone element */}
-            {selectedSurahNum !== 1 && selectedSurahNum !== 9 && (
+            {/* Surah Bismillah - only in surah mode */}
+            {viewMode === 'surah' && selectedSurahNum !== 1 && selectedSurahNum !== 9 && (
               <div 
                 className="text-center quran-text text-3xl sm:text-4xl my-10 text-primary/80 tracking-wide font-normal select-none"
                 style={{
                   textShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                  fontFeatureSettings: '"ccmp" 1, "locl" 1, "rlig" 1, "calt" 1, "mset" 1',
+                  fontFeatureSettings: '"ccmp" 1, "locl" 1, "rlig" 1, "calt" 1',
                 }}
                 id="mushaf-bismillah"
               >
@@ -746,12 +913,81 @@ export const QuranSection: React.FC = () => {
 
             {/* Bottom Sura Pages indicator */}
             <div className="w-full flex items-center justify-between border-t border-border-custom/30 pt-6 mt-12 text-[10px] font-bold text-text-secondary font-mono" id="mushaf-footer">
-              <span>PAGE {selectedSurah?.pages?.[0] || 1}</span>
-              <span className="arabic-text">{isAr ? 'صدق الله العظيم' : 'Sadaqallahul-Azim'}</span>
-              <span>SURAH {selectedSurahNum}</span>
+              {viewMode === 'surah' && (
+                <>
+                  <span>PAGE {selectedSurah?.pages?.[0] || 1}</span>
+                  <span className="arabic-text">{isAr ? 'صدق الله العظيم' : 'Sadaqallahul-Azim'}</span>
+                  <span>SURAH {selectedSurahNum}</span>
+                </>
+              )}
+              {viewMode === 'juz' && selectedJuzInfo && (
+                <>
+                  <span>{selectedJuzInfo.surahNameAr}</span>
+                  <span className="arabic-text">{isAr ? 'صدق الله العظيم' : 'Sadaqallahul-Azim'}</span>
+                  <span>{isAr ? selectedJuzInfo.nameAr : `Juz ${selectedJuzNum}`}</span>
+                </>
+              )}
+              {viewMode === 'page' && (
+                <>
+                  <span>PAGE {selectedPageNum}</span>
+                  <span className="arabic-text">{isAr ? 'صدق الله العظيم' : 'Sadaqallahul-Azim'}</span>
+                  <span>{isAr ? `صفحة ${selectedPageNum}` : `Page ${selectedPageNum}`}</span>
+                </>
+              )}
             </div>
 
-          </div>
+            {/* Mode-aware Previous / Next navigation */}
+            <div className="w-full flex items-center justify-between gap-2 pt-5 mt-8 border-t border-border-custom/30" id="reading-nav">
+              <button
+                onClick={() => {
+                  if (viewMode === 'surah') setSelectedSurahNum((s) => Math.max(1, s - 1));
+                  else if (viewMode === 'juz') setSelectedJuzNum((j) => Math.max(1, j - 1));
+                  else setSelectedPageNum((p) => Math.max(1, p - 1));
+                }}
+                disabled={
+                  viewMode === 'surah'
+                    ? selectedSurahNum <= 1
+                    : viewMode === 'juz'
+                      ? selectedJuzNum <= 1
+                      : selectedPageNum <= 1
+                }
+                className="flex items-center gap-1.5 rounded-full bg-surface border border-border-custom px-5 py-2.5 text-xs font-bold text-text-secondary hover:text-text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                id="btn-reading-prev"
+              >
+                <ChevronRight className="h-4 w-4" />
+                {isAr ? 'السابقة' : 'Previous'}
+              </button>
+
+              <span className="text-[11px] font-mono font-bold text-text-secondary select-none" id="reading-nav-indicator">
+                {viewMode === 'surah'
+                  ? `${isAr ? 'سورة' : 'Surah'} ${selectedSurahNum} / ${chapters.length || 114}`
+                  : viewMode === 'juz'
+                    ? `${isAr ? 'جزء' : 'Juz'} ${selectedJuzNum} / ${JUZ_INFO.length}`
+                    : `${selectedPageNum} / ${TOTAL_PAGES}`}
+              </span>
+
+              <button
+                onClick={() => {
+                  if (viewMode === 'surah') setSelectedSurahNum((s) => Math.min(chapters.length || 114, s + 1));
+                  else if (viewMode === 'juz') setSelectedJuzNum((j) => Math.min(JUZ_INFO.length, j + 1));
+                  else setSelectedPageNum((p) => Math.min(TOTAL_PAGES, p + 1));
+                }}
+                disabled={
+                  viewMode === 'surah'
+                    ? selectedSurahNum >= (chapters.length || 114)
+                    : viewMode === 'juz'
+                      ? selectedJuzNum >= JUZ_INFO.length
+                      : selectedPageNum >= TOTAL_PAGES
+                }
+                className="flex items-center gap-1.5 rounded-full bg-surface border border-border-custom px-5 py-2.5 text-xs font-bold text-text-secondary hover:text-text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                id="btn-reading-next"
+              >
+                {isAr ? 'التالية' : 'Next'}
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            </div>
+
+          </div>)}
 
         </div>
 
@@ -862,8 +1098,8 @@ export const QuranSection: React.FC = () => {
           {/* Sidebar scrollable container */}
           <div className="flex flex-col gap-2 overflow-y-auto max-h-[500px] pr-1" id="sidebar-scrollable-content">
             
-            {/* 1. Surah index display */}
-            {searchMode === 'index' && (
+            {/* 1. Surah index display (only in surah mode) */}
+            {searchMode === 'index' && viewMode === 'surah' && (
               <>
                 {loadingChapters ? (
                   <div className="flex flex-col items-center justify-center py-10" id="chapters-loader">
@@ -883,7 +1119,6 @@ export const QuranSection: React.FC = () => {
                         }`}
                         id={`surah-btn-${surah.id}`}
                       >
-                        {/* Left: Verses Count & origin details */}
                         <div className="text-left" id={`surah-left-${surah.id}`}>
                           <span className={`arabic-text text-[10px] font-bold block ${isActive ? 'text-white/90' : 'text-text-secondary'}`}>
                             {surah.versesCount} {isAr ? 'آيات' : 'Verses'}
@@ -893,7 +1128,6 @@ export const QuranSection: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* Right: Surah Name, English translation, and Number Badge */}
                         <div className="flex items-center gap-3" id={`surah-right-${surah.id}`}>
                           <div className="text-right" id={`surah-meta-${surah.id}`}>
                             <span className="arabic-text font-black text-sm block">
@@ -924,7 +1158,97 @@ export const QuranSection: React.FC = () => {
               </>
             )}
 
-            {/* 2. Global live search results display */}
+            {/* 2. Juz list display (only in juz mode) */}
+            {searchMode === 'index' && viewMode === 'juz' && (
+              <>
+                {loadingJuzs ? (
+                  <div className="flex flex-col items-center justify-center py-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary" />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2" id="juz-list-grid">
+                    {JUZ_INFO.map((juz) => {
+                      const isActive = selectedJuzNum === juz.juzNumber;
+                      return (
+                        <button
+                          key={juz.juzNumber}
+                          onClick={() => setSelectedJuzNum(juz.juzNumber)}
+                          className={`w-full p-3 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all border text-center cursor-pointer active-press ${
+                            isActive 
+                              ? 'bg-primary border-primary text-white shadow-md' 
+                              : 'bg-surface border-border-custom/50 text-text-primary hover:border-primary/20 hover:bg-surface-muted/30'
+                          }`}
+                          id={`juz-btn-${juz.juzNumber}`}
+                        >
+                          <span className="arabic-text font-black text-sm">{juz.nameAr}</span>
+                          <span className={`text-[10px] font-sans font-bold ${isActive ? 'text-white/80' : 'text-text-secondary'}`}>
+                            {isAr ? 'الجزء' : 'Juz'} {juz.juzNumber}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* 3. Page navigator display (only in page mode) */}
+            {searchMode === 'index' && viewMode === 'page' && (
+              <div className="flex flex-col gap-4" id="page-navigator-block">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={TOTAL_PAGES}
+                    value={pageInput}
+                    onChange={(e) => setPageInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const p = parseInt(pageInput);
+                        if (p >= 1 && p <= TOTAL_PAGES) setSelectedPageNum(p);
+                      }
+                    }}
+                    placeholder={isAr ? `رقم الصفحة (1-${TOTAL_PAGES})` : `Page number (1-${TOTAL_PAGES})`}
+                    className="arabic-text text-xs flex-1 rounded-full border border-border-custom bg-surface py-2.5 px-4 focus:outline-none focus:border-primary transition-colors text-center font-bold"
+                    id="page-input"
+                  />
+                  <button
+                    onClick={() => {
+                      const p = parseInt(pageInput);
+                      if (p >= 1 && p <= TOTAL_PAGES) setSelectedPageNum(p);
+                    }}
+                    className="rounded-full bg-primary text-white px-5 py-2.5 text-xs font-bold hover:bg-primary-hover transition-colors cursor-pointer"
+                    id="btn-go-page"
+                  >
+                    {isAr ? 'اذهب' : 'Go'}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => setSelectedPageNum((p) => Math.max(1, p - 1))}
+                    disabled={selectedPageNum <= 1}
+                    className="flex items-center gap-1 rounded-full bg-surface border border-border-custom px-4 py-2 text-xs font-bold text-text-secondary hover:text-text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                    {isAr ? 'السابقة' : 'Previous'}
+                  </button>
+                  <span className="text-[10px] font-mono font-bold text-text-secondary">
+                    {selectedPageNum} / {TOTAL_PAGES}
+                  </span>
+                  <button
+                    onClick={() => setSelectedPageNum((p) => Math.min(TOTAL_PAGES, p + 1))}
+                    disabled={selectedPageNum >= TOTAL_PAGES}
+                    className="flex items-center gap-1 rounded-full bg-surface border border-border-custom px-4 py-2 text-xs font-bold text-text-secondary hover:text-text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {isAr ? 'التالية' : 'Next'}
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 4. Global live search results display (works in all modes) */}
             {searchMode === 'global' && (
               <div className="flex flex-col gap-3" id="global-search-results-pane">
                 {loadingSearch ? (

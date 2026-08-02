@@ -2,8 +2,25 @@
 @import "tailwindcss";
 
 @font-face {
-  font-family: 'KFGQPC Uthmanic Hafs';
-  src: url('./assets/fonts/KFGQPC-Uthmanic-Hafs.otf') format('opentype');
+  font-family: 'KFGQPC Uthman Taha Naskh';
+  src: url('./assets/fonts/UthmanTN1.woff2') format('woff2'),
+       url('./assets/fonts/UthmanTN1.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+ * IMPORTANT: text_qpc_hafs (fetched from the Quran.com API in quranService.ts)
+ * is Unicode text encoded specifically to be shaped by the "QPC Hafs / Uthmanic Hafs"
+ * font family. It must NOT be rendered with "Uthman Taha Naskh" (a different font
+ * family with different glyph/diacritic assumptions) — doing so is what was causing
+ * the broken letter shapes and misplaced harakat.
+ */
+@font-face {
+  font-family: 'KFGQPC Uthmanic Script HAFS';
+  src: url('./assets/fonts/UthmanicHafs1.woff2') format('woff2'),
+       url('./assets/fonts/UthmanicHafs1.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -22,7 +39,7 @@
   
   --font-sans: "Inter", "IBM Plex Sans Arabic", system-ui, sans-serif;
   --font-arabic: var(--font-family-arabic, "IBM Plex Sans Arabic"), "Tajawal", sans-serif;
-  --font-quran: "KFGQPC Uthmanic Hafs", serif;
+  --font-quran: "KFGQPC Uthmanic Script HAFS", "KFGQPC Uthman Taha Naskh", serif;
   --font-mono: "JetBrains Mono", monospace;
   
   --animate-pulse-subtle: pulse-subtle 2s infinite ease-in-out;
@@ -81,17 +98,17 @@ body {
 
 /* Quranic typography styling */
 .quran-text {
-  font-family: "KFGQPC Uthmanic Hafs", serif;
+  font-family: "KFGQPC Uthmanic Script HAFS", "KFGQPC Uthman Taha Naskh", serif;
   direction: rtl;
   text-align: right;
   line-height: 2.5;
-  word-spacing: 5px;
+  word-spacing: normal;
   letter-spacing: 0;
   font-weight: normal !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-variant-ligatures: common-ligatures discretionary-ligatures historical-ligatures contextual;
-  font-feature-settings: "ccmp" 1, "locl" 1, "rlig" 1, "calt" 1, "mset" 1;
+  font-feature-settings: "ccmp" 1, "locl" 1, "rlig" 1, "calt" 1;
   text-rendering: optimizeLegibility;
 }
 

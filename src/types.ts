@@ -53,4 +53,5 @@ export interface UserSettings {
   } | null;
   masbahaCount: number;
   masbahaPhrase: string;
+  quranViewMode: 'surah' | 'juz' | 'page' | 'mushaf';
 }

@@ -8,6 +8,10 @@ export const AudioPlayer: React.FC = () => {
     setPlayingAudio,
     audioPlaying,
     setAudioPlaying,
+    audioQueue,
+    setAudioQueue,
+    audioQueueIndex,
+    setAudioQueueIndex,
     playbackSpeed,
     setPlaybackSpeed,
     reciter,
@@ -25,6 +29,11 @@ export const AudioPlayer: React.FC = () => {
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ttsUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioQueueRef = useRef(audioQueue);
+  const audioQueueIndexRef = useRef(audioQueueIndex);
+
+  useEffect(() => { audioQueueRef.current = audioQueue; }, [audioQueue]);
+  useEffect(() => { audioQueueIndexRef.current = audioQueueIndex; }, [audioQueueIndex]);
 
   const isAr = settings.language === 'ar';
 
@@ -157,10 +166,23 @@ export const AudioPlayer: React.FC = () => {
       });
 
       audioObj.addEventListener('ended', () => {
+        if (audio.isQuran) {
+          const queue = audioQueueRef.current;
+          const idx = audioQueueIndexRef.current;
+          if (queue && queue.length > 0 && idx < queue.length - 1) {
+            const nextIdx = idx + 1;
+            setAudioQueueIndex(nextIdx);
+            setPlayingAudio(queue[nextIdx]);
+            return;
+          }
+          if (queue && queue.length > 0) {
+            setAudioQueue(null);
+            setAudioQueueIndex(0);
+          }
+        }
+
         if (startRepeat < totalRepeats) {
-          // Increment repeat count
           setRepeatProgress(startRepeat + 1);
-          // Increment actual App count
           incrementDhikrCount(audio.id, 100);
           playCurrent(audio, startRepeat + 1, totalRepeats);
         } else {
