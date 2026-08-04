@@ -4,14 +4,14 @@ import { useApp } from '../context/AppContext';
 export const StatsSection: React.FC = () => {
   const { settings } = useApp();
 
+  const isAr = settings.language === 'ar';
+
   const stats = [
     { value: '1.2k', labelAr: 'أجر ومشاركة', labelEn: 'Rewards & Shares' },
     { value: '٨', labelAr: 'ختمات منجزة', labelEn: 'Completed Khatmas' },
-    { value: '٤٥٠', labelAr: 'تسبيحة اليوم', labelEn: 'Today\'s Tasbeehs' },
-    { value: '١٢', labelAr: 'يوم متتالي', labelEn: 'Day Streak' },
+    { value: String(settings.masbahaCount || 0), labelAr: 'تسبيحة اليوم', labelEn: 'Today\'s Tasbeehs' },
+    { value: String(settings.adhkarStreak.count), labelAr: 'يوم متتالي', labelEn: 'Day Streak' },
   ];
-
-  const isAr = settings.language === 'ar';
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full" id="stats-grid">

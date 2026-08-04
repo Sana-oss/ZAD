@@ -6,7 +6,7 @@ import { StatsSection } from './StatsSection';
 import { PrayerTimesCard } from './PrayerTimesCard';
 import { MasbahaCard } from './MasbahaCard';
 import { CATEGORIES } from '../data/adhkar';
-import { Sun, Moon, Bed, Compass, Heart, Home, DoorOpen, UtensilsCrossed, Smile, Droplets, HeartPulse, Shield, Search, Plane, Sparkles } from 'lucide-react';
+import { Sun, Moon, Bed, Compass, Heart, Home, DoorOpen, UtensilsCrossed, Smile, Droplets, HeartPulse, Shield, Search, Plane, Sparkles, Flame } from 'lucide-react';
 
 export const HomeSection: React.FC = () => {
   const { settings, setActiveTab, setActiveCategory } = useApp();
@@ -57,6 +57,24 @@ export const HomeSection: React.FC = () => {
           
           {/* 1. Aya of the Day Banner */}
           <AyaCard />
+
+          {/* 1.5 Streak Card */}
+          {settings.adhkarStreak.count > 0 && (
+            <div className="rounded-3xl bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/20 p-6 text-center">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Flame className="h-6 w-6 text-orange-500 animate-bounce" />
+                <h3 className="arabic-text text-xl font-bold text-orange-600">
+                  {isAr ? 'سلسلتك مستمرة!' : "You're on a streak!"}
+                </h3>
+              </div>
+              <p className="text-3xl font-black text-orange-600 mb-2">
+                {settings.adhkarStreak.count}
+              </p>
+              <p className="arabic-text text-sm text-text-secondary">
+                {isAr ? 'أيام متتالية من الالتزام' : 'consecutive days of commitment'}
+              </p>
+            </div>
+          )}
 
           {/* 2. Daily Remembrance Categories */}
           <div className="flex flex-col gap-4" id="adhkar-categories-container">

@@ -81,4 +81,11 @@ export interface UserSettings {
   masbahaCount: number;
   masbahaPhrase: string;
   quranViewMode: 'surah' | 'juz' | 'page' | 'mushaf';
+  adhkarStreak: {
+    count: number;
+    lastCompletedDate: string; // YYYY-MM-DD
+  };
+  adhkarCompletedToday: {
+    [key: string]: boolean | undefined;
+  };
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { DHIKR_LIST, CATEGORIES } from '../data/adhkar';
 import { ArrowLeft, Search, Heart, Share2, Copy, Check, RotateCcw, Volume2, Sparkles, ShieldCheck, Sun, Moon, Compass, Bed, Home, DoorOpen, UtensilsCrossed, Smile, Droplets, HeartPulse, Shield, Plane } from 'lucide-react';
+import { StreakBanner } from './StreakBanner';
 
 export const AdhkarSection: React.FC = () => {
   const { 
@@ -15,6 +16,7 @@ export const AdhkarSection: React.FC = () => {
     dhikrCounts,
     incrementDhikrCount,
     setDhikrCounts,
+    markCategoryCompleted,
     playingAudio,
     setPlayingAudio,
     audioPlaying,
@@ -129,6 +131,9 @@ export const AdhkarSection: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6 sm:py-8" id="adhkar-section">
+      
+      {/* Streak Banner */}
+      <StreakBanner />
       
       {/* Category Selection view / Category list */}
       {!activeCategory && (
@@ -308,7 +313,20 @@ export const AdhkarSection: React.FC = () => {
                       
                       {/* Interactive Ring Circle Counter (Left) - Inspired by Image 3 */}
                       <button
-                        onClick={() => incrementDhikrCount(d.id, d.count)}
+                        onClick={() => {
+                          incrementDhikrCount(d.id, d.count);
+                          // Check if all dhikr in this category are now completed
+                          const newCount = (dhikrCounts[d.id] || 0) + 1;
+                          if (newCount >= d.count && activeCategory) {
+                            const allDone = filteredDhikr.every((item) => {
+                              const count = item.id === d.id ? newCount : (dhikrCounts[item.id] || 0);
+                              return count >= item.count;
+                            });
+                            if (allDone) {
+                              markCategoryCompleted(activeCategory);
+                            }
+                          }
+                        }}
                         className={`relative flex-shrink-0 flex flex-col items-center justify-center h-16 w-16 rounded-full border-2 transition-all duration-200 cursor-pointer ${
                           isCompleted 
                             ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600' 
@@ -330,7 +348,19 @@ export const AdhkarSection: React.FC = () => {
                       {/* Text block (Right) */}
                       <div className="flex flex-col gap-2 text-right flex-grow" id={`dhikr-card-text-wrapper-${d.id}`}>
                         <p 
-                          onClick={() => incrementDhikrCount(d.id, d.count)}
+                          onClick={() => {
+                            incrementDhikrCount(d.id, d.count);
+                            const newCount = (dhikrCounts[d.id] || 0) + 1;
+                            if (newCount >= d.count && activeCategory) {
+                              const allDone = filteredDhikr.every((item) => {
+                                const count = item.id === d.id ? newCount : (dhikrCounts[item.id] || 0);
+                                return count >= item.count;
+                              });
+                              if (allDone) {
+                                markCategoryCompleted(activeCategory);
+                              }
+                            }
+                          }}
                           className="arabic-text text-base sm:text-lg font-semibold leading-relaxed text-text-primary cursor-pointer active:opacity-90 select-all"
                           id={`dhikr-text-${d.id}`}
                         >

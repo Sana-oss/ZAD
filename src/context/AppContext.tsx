@@ -21,6 +21,7 @@ interface AppContextType {
   setDhikrCounts: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   incrementDhikrCount: (id: string, max: number) => void;
   resetCategoryProgress: (cat: string) => void;
+  markCategoryCompleted: (categoryId: string) => void;
   playingAudio: { id: string; text: string; title: string; category: string; audioUrl?: string; isQuran?: boolean } | null;
   setPlayingAudio: (audio: { id: string; text: string; title: string; category: string; audioUrl?: string; isQuran?: boolean } | null) => void;
   audioPlaying: boolean;
@@ -61,6 +62,11 @@ const DEFAULT_SETTINGS: UserSettings = {
   masbahaCount: 0,
   masbahaPhrase: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ',
   quranViewMode: 'surah',
+  adhkarStreak: {
+    count: 0,
+    lastCompletedDate: '',
+  },
+  adhkarCompletedToday: {},
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -160,6 +166,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const markCategoryCompleted = (categoryId: string) => {
+    updateSettings({
+      adhkarCompletedToday: {
+        ...settings.adhkarCompletedToday,
+        [categoryId]: true,
+      },
+    });
+  };
+
+  // Daily reset: clear adhkarCompletedToday when a new day starts
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const lastDate = settings.adhkarStreak.lastCompletedDate;
+    if (lastDate !== today) {
+      updateSettings({ adhkarCompletedToday: {} });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update streak when all required categories are completed today
+  useEffect(() => {
+    const requiredCategories = ['morning', 'evening', 'sleep', 'prayer_after'];
+    const allDone = requiredCategories.every(
+      (cat) => settings.adhkarCompletedToday[cat] === true
+    );
+
+    if (!allDone) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const lastDate = settings.adhkarStreak.lastCompletedDate;
+
+    if (lastDate === today) return; // already updated today
+
+    const lastDateObj = new Date(lastDate || '2000-01-01');
+    const todayObj = new Date(today);
+    const daysDiff = Math.floor(
+      (todayObj.getTime() - lastDateObj.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    let newStreak: number;
+    if (daysDiff === 1) {
+      newStreak = settings.adhkarStreak.count + 1;
+    } else if (daysDiff > 1) {
+      newStreak = 1;
+    } else {
+      return; // same day, already handled
+    }
+
+    updateSettings({
+      adhkarStreak: {
+        count: newStreak,
+        lastCompletedDate: today,
+      },
+    });
+  }, [settings.adhkarCompletedToday]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <AppContext.Provider
       value={{
@@ -182,6 +243,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setDhikrCounts,
         incrementDhikrCount,
         resetCategoryProgress,
+        markCategoryCompleted,
         playingAudio,
         setPlayingAudio,
         audioPlaying,
