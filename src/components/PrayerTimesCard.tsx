@@ -1,233 +1,355 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
-import { Clock, MapPin, Bell, BellOff, Compass, Settings } from 'lucide-react';
+import { Clock, MapPin, Compass, Bell, BellOff, RotateCcw } from 'lucide-react';
+import {
+  PrayerTimesService,
+  DEFAULT_METHOD,
+  DEFAULT_LOCATION,
+  DEFAULT_NOTIF_PREFS,
+  PRAYER_METHODS,
+  convertTo12Hour,
+  getNextPrayer,
+  LocationCoords,
+  PrayerTimesData,
+} from '../services/prayerTimesService';
+import { QiblaCompass } from './QiblaCompass';
+import { PrayerTime } from '../types';
+
+const service = new PrayerTimesService();
+
+const ARABIC_WEEKDAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+const ARABIC_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+
+interface PrayerCardState {
+  coords: LocationCoords | null;
+  cityName: string;
+  prayerTimes: PrayerTimesData | null;
+  loading: boolean;
+  error: string | null;
+  reloadKey: number;
+}
 
 export const PrayerTimesCard: React.FC = () => {
-  const { settings } = useApp();
+  const { settings, updateSettings } = useApp();
+
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [notifStates, setNotifStates] = useState<Record<string, boolean>>({
-    fajr: true,
-    sunrise: false,
-    dhuhr: true,
-    asr: true,
-    maghrib: true,
-    isha: true,
+  const [dst, setDst] = useState(false);
+  const [state, setState] = useState<PrayerCardState>({
+    coords: null,
+    cityName: settings.prayerLocation?.cityName || '',
+    prayerTimes: null,
+    loading: true,
+    error: null,
+    reloadKey: 0,
   });
 
-  const [dst, setDst] = useState(false);
+  const method = settings.prayerMethod ?? DEFAULT_METHOD;
+  const notifPrefs = settings.prayerNotificationPrefs ?? DEFAULT_NOTIF_PREFS;
 
-  // Sync current time
+  // Sync current time every second
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const prayerData = [
-    { id: 'fajr', nameAr: 'الفجر', nameEn: 'Fajr', time: '04:32', type: 'AM' },
-    { id: 'sunrise', nameAr: 'الشروق', nameEn: 'Sunrise', time: '06:12', type: 'AM' },
-    { id: 'dhuhr', nameAr: 'الظهر', nameEn: 'Dhuhr', time: '12:05', type: 'PM' },
-    { id: 'asr', nameAr: 'العصر', nameEn: 'Asr', time: '15:38', displayTime: '03:38', type: 'PM' },
-    { id: 'maghrib', nameAr: 'المغرب', nameEn: 'Maghrib', time: '18:45', displayTime: '06:45', type: 'PM' },
-    { id: 'isha', nameAr: 'العشاء', nameEn: 'Isha', time: '20:12', displayTime: '08:12', type: 'PM' },
-  ];
-
-  const toggleNotification = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setNotifStates((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  // Helper to convert hh:mm to milliseconds from start of day
-  const timeToMs = (timeStr: string) => {
-    const [h, m] = timeStr.split(':').map(Number);
-    return (h * 60 + m) * 60 * 1000;
-  };
-
-  // Find next prayer and calculate countdown
-  const getNextPrayer = () => {
-    const currentMs = (currentTime.getHours() * 60 + currentTime.getMinutes()) * 60 * 1000 + currentTime.getSeconds() * 1000;
-    
-    // Sort prayers chronologically
-    let next = prayerData.find((p) => timeToMs(p.time) > currentMs);
-    let isNextDay = false;
-    
-    if (!next) {
-      next = prayerData[0]; // Fajr tomorrow
-      isNextDay = true;
+  // Request browser notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
     }
+  }, []);
 
-    const nextMs = timeToMs(next.time);
-    let diff = nextMs - currentMs;
-    if (isNextDay) {
-      diff += 24 * 60 * 60 * 1000; // Add full day
-    }
+  // Resolve coordinates: saved location -> geolocation -> default
+  useEffect(() => {
+    let cancelled = false;
+    const resolveLocation = async () => {
+      if (settings.prayerLocation?.latitude && settings.prayerLocation?.longitude) {
+        if (!cancelled) {
+          setState((prev) => ({ ...prev, coords: settings.prayerLocation as LocationCoords, loading: false }));
+        }
+        return;
+      }
 
-    // Format diff
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const secs = Math.floor((diff % (1000 * 60)) / 1000);
-
-    const pad = (num: number) => String(num).padStart(2, '0');
-    return {
-      prayer: next,
-      countdown: `${pad(hours)}:${pad(mins)}:${pad(secs)}`,
-      id: next.id,
+      try {
+        const geo = await service.getLocation();
+        if (cancelled) return;
+        const city = await service.reverseGeocode(geo.latitude, geo.longitude);
+        if (!cancelled) {
+          setState((prev) => ({
+            ...prev,
+            coords: { latitude: geo.latitude, longitude: geo.longitude },
+            cityName: city,
+            loading: false,
+          }));
+        }
+      } catch {
+        if (!cancelled) {
+          setState((prev) => ({ ...prev, coords: DEFAULT_LOCATION, cityName: DEFAULT_LOCATION.cityName || '', loading: false }));
+        }
+      }
     };
+    resolveLocation();
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.prayerLocation]);
+
+  // Fetch prayer times
+  useEffect(() => {
+    if (!state.coords) return;
+    let cancelled = false;
+
+    const fetchTimes = async () => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      try {
+        const result = await service.getPrayerTimes(state.coords.latitude, state.coords.longitude, method);
+        if (cancelled) return;
+        setState((prev) => ({ ...prev, prayerTimes: result, loading: false }));
+
+        // Persist location once we know it resolves
+        const loc = { latitude: state.coords.latitude, longitude: state.coords.longitude, cityName: state.cityName };
+        updateSettings({ prayerLocation: loc as Parameters<typeof updateSettings>[0]['prayerLocation'] });
+      } catch {
+        if (!cancelled) setState((prev) => ({ ...prev, loading: false, error: 'تعذر تحميل مواقيت الصلاة. تأكد من اتصالك بالإنترنت ثم أعد المحاولة.' }));
+      }
+    };
+    fetchTimes();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.coords, method, state.cityName, state.reloadKey, updateSettings]);
+
+  const toggleNotification = useCallback(
+    (prayerId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      const current = settings.prayerNotificationPrefs ?? DEFAULT_NOTIF_PREFS;
+      updateSettings({
+        prayerNotificationPrefs: {
+          ...current,
+          [prayerId]: !current[prayerId as keyof typeof DEFAULT_NOTIF_PREFS],
+        },
+      });
+    },
+    [settings.prayerNotificationPrefs, updateSettings],
+  );
+
+  const changeMethod = (id: string) => {
+    updateSettings({ prayerMethod: Number(id) });
   };
 
-  const nextPrayerInfo = getNextPrayer();
-  const isAr = settings.language === 'ar';
+  const retry = () => {
+    setState((prev) => ({ ...prev, reloadKey: prev.reloadKey + 1 }));
+  };
+
+  const nowMs = currentTime.getHours() * 3600000 + currentTime.getMinutes() * 60000 + currentTime.getSeconds() * 1000;
+  const nextPrayer = state.prayerTimes ? getNextPrayer(state.prayerTimes.prayers, currentTime) : null;
+
+  const formatIslamicDate = (): string => {
+    if (state.prayerTimes) return `بتاريخ ${state.prayerTimes.dateHijri} — ${state.prayerTimes.dateGregorian}`;
+
+    const weekday = ARABIC_WEEKDAYS[currentTime.getDay()];
+    const day = currentTime.getDate();
+    const monthAr = ARABIC_MONTHS[currentTime.getMonth()];
+    const year = currentTime.getFullYear();
+    return `${weekday} ${day} ${monthAr} ${year}`;
+  };
+
+  const formatCurrentClock = (): string => {
+    const clock = convertTo12Hour(`${currentTime.getHours()}:${currentTime.getMinutes()}`);
+    return `${clock.time}:${String(currentTime.getSeconds()).padStart(2, '0')} ${clock.suffix === 'PM' ? 'م' : 'ص'}`;
+  };
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-xl mx-auto" id="prayer-qibla-section">
-      
-      {/* Prayer Times Panel */}
-      <div 
-        className="rounded-3xl border border-border-custom bg-surface p-6 shadow-sm transition-colors duration-200"
-        id="prayer-times-panel"
-      >
-        {/* Title */}
-        <div className="flex items-center justify-between border-b border-border-custom/50 pb-4 mb-5" id="prayer-header">
-          <div className="flex items-center gap-1.5 text-text-secondary text-xs font-semibold" id="prayer-location">
-            <MapPin className="h-4 w-4 text-primary" />
-            <span className="arabic-text">الرياض، المملكة العربية السعودية</span>
+    <div id="prayer-qibla-section" className="flex flex-col gap-6 w-full max-w-xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-primary/15 flex items-center justify-center">
+            <Clock className="w-5 h-5 text-primary" />
           </div>
-          <div className="flex items-center gap-2" id="prayer-main-title">
-            <Clock className="h-4 w-4 text-primary" />
-            <h3 className="arabic-text text-md font-bold text-text-primary">مواقيت الصلاة</h3>
+          <div>
+            <h3 className="text-lg font-bold text-text-primary">مواقيت الصلاة</h3>
+            <p className="text-sm text-text-secondary pt-1">{formatIslamicDate()}</p>
           </div>
         </div>
-
-        {/* Dynamic Countdown Header */}
-        <div 
-          className="mb-6 rounded-2xl bg-primary/5 border border-primary/10 p-4 text-center"
-          id="prayer-countdown-banner"
+        <button
+          id="btn-open-compass"
+          onClick={() => document.getElementById('prayer-qibla-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-muted border border-border-custom text-sm font-medium text-text-primary transition-colors hover:bg-primary-hover/70"
         >
-          <p className="arabic-text text-xs text-text-secondary font-medium mb-1">
-            {isAr ? `الصلاة القادمة: ${nextPrayerInfo.prayer.nameAr}` : `Next Prayer: ${nextPrayerInfo.prayer.nameEn}`}
-          </p>
-          <p className="font-sans text-3xl font-extrabold text-primary tracking-wider" id="countdown-timer">
-            {nextPrayerInfo.countdown}
-          </p>
-          <span className="arabic-text text-[10px] text-text-secondary font-medium">
-            {isAr ? 'الوقت المتبقي لإقامة الصلاة' : 'Remaining time to prayer'}
+          <Compass className="w-4 h-4 text-primary" />
+          البوصلة
+        </button>
+      </div>
+
+      {/* Location + clock */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm text-text-secondary">
+          <MapPin className="w-4 h-4 text-primary" />
+          <span id="prayer-location">{state.cityName || 'موقعك الحالي'}</span>
+        </div>
+        <div className="font-mono text-2xl font-bold text-text-primary tabular-nums" dir="ltr">
+          {formatCurrentClock()}
+        </div>
+      </div>
+
+      {/* Countdown banner */}
+      {nextPrayer && state.prayerTimes && (
+        <div
+          id="prayer-countdown-banner"
+          className="rounded-2xl bg-surface-muted border border-border-custom p-4 flex items-center justify-between gap-4"
+        >
+          <div>
+            <p className="text-sm text-text-secondary">
+              {nextPrayer.isNextDay ? 'غداً' : 'الصلاة القادمة'}
+            </p>
+            <h4 className="text-xl font-bold text-text-primary mt-1">
+              أذان {nextPrayer.prayer.nameAr}
+            </h4>
+          </div>
+          <div
+            id="countdown-timer"
+            className="font-mono text-3xl font-bold text-primary tabular-nums"
+            dir="ltr"
+          >
+            {nextPrayer.countdown}
+          </div>
+        </div>
+      )}
+
+      {/* Prayer times panel */}
+      <div id="prayer-times-panel" className="rounded-2xl bg-surface shadow-sm border border-border-custom overflow-hidden">
+        {/* Header row */}
+        <div className="flex items-center justify-between px-4 py-4 border-b border-border-custom">
+          <span className="font-semibold text-text-primary">أوقات الأذان</span>
+          <span className="text-xs px-2 py-1 rounded-full bg-accent-gold/15 text-accent-gold font-semibold">
+            {state.prayerTimes?.methodName || 'حسب الطريقة المحددة'}
           </span>
         </div>
 
-        {/* Prayer List */}
-        <div className="flex flex-col gap-2.5" id="prayer-items-list">
-          {prayerData.map((p) => {
-            const isNext = nextPrayerInfo.id === p.id;
-            const isNotifOn = notifStates[p.id];
-            
-            // Format time display
-            const displayTime = p.displayTime || p.time;
-            const arSuffix = p.type === 'AM' ? 'ص' : 'م';
-            const enSuffix = p.type;
-
-            return (
-              <div
-                key={p.id}
-                className={`flex items-center justify-between p-3.5 rounded-2xl transition-all border ${
-                  isNext 
-                    ? 'bg-primary border-primary text-white shadow-md scale-[1.01]' 
-                    : 'bg-surface-muted/30 border-border-custom/40 text-text-primary hover:border-primary/20'
-                }`}
-                id={`prayer-row-${p.id}`}
-              >
-                {/* Left side: Time & Notification Toggle */}
-                <div className="flex items-center gap-3" id={`prayer-left-${p.id}`}>
-                  <button
-                    onClick={(e) => toggleNotification(p.id, e)}
-                    className={`p-1.5 rounded-full transition-colors hover:bg-white/10 ${
-                      isNext 
-                        ? 'text-white' 
-                        : isNotifOn ? 'text-primary' : 'text-text-secondary'
-                    }`}
-                    aria-label={`Toggle Azan for ${p.nameEn}`}
-                    id={`btn-toggle-notif-${p.id}`}
-                  >
-                    {isNotifOn ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4 opacity-50" />}
-                  </button>
-                  <span className="font-sans font-bold text-sm tracking-wide">
-                    {displayTime} <span className="arabic-text text-xs font-semibold">{isAr ? arSuffix : enSuffix}</span>
-                  </span>
+        {state.loading && (
+          <div id="prayer-items-list" className="divide-y divide-border-custom/60">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center gap-4 px-4 py-4 animate-pulse">
+                <div className="w-3 h-3 rounded-full bg-surface-muted" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-24 rounded bg-surface-muted" />
+                  <div className="h-3 w-32 rounded bg-surface-muted" />
                 </div>
-
-                {/* Right side: Name */}
-                <span className="arabic-text font-bold text-sm tracking-wide" id={`prayer-name-${p.id}`}>
-                  {isAr ? p.nameAr : p.nameEn}
-                </span>
+                <div className="h-4 w-16 rounded bg-surface-muted" />
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Extra Info & Qibla Compass Map Panel */}
-      <div 
-        className="rounded-3xl border border-border-custom bg-surface p-6 shadow-sm transition-colors duration-200"
-        id="qibla-calculation-panel"
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6" id="info-qibla-grid">
-          
-          {/* Calendar & Calculation Box */}
-          <div className="flex flex-col justify-between p-4 rounded-2xl bg-surface-muted/40 border border-border-custom/30 text-right" id="calendar-box">
-            <div>
-              <span className="arabic-text text-[10px] font-semibold text-primary block mb-1">التاريخ الهجري</span>
-              <p className="arabic-text text-sm font-bold text-text-primary mb-3">١٤ شعبان ١٤٤٥ هـ</p>
-              
-              <span className="arabic-text text-[10px] font-semibold text-primary block mb-1">طريقة الحساب</span>
-              <p className="arabic-text text-xs font-semibold text-text-secondary mb-3">الهيئة العامة المصرية للمساحة</p>
-            </div>
-            
-            <div className="flex items-center justify-between border-t border-border-custom/50 pt-3 mt-2" id="dst-toggle-row">
-              <button 
-                onClick={() => setDst(!dst)}
-                className={`w-10 h-5 flex items-center rounded-full p-0.5 transition-all duration-300 ${dst ? 'bg-primary justify-end' : 'bg-text-secondary/30 justify-start'}`}
-                id="dst-toggle"
-              >
-                <span className="h-4 w-4 rounded-full bg-white shadow-sm" />
-              </button>
-              <span className="arabic-text text-xs font-semibold text-text-secondary">التوقيت الصيفي</span>
-            </div>
+            ))}
           </div>
+        )}
 
-          {/* Compass Graphic Box */}
-          <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-surface-muted/40 border border-border-custom/30 text-center" id="compass-box">
-            <span className="arabic-text text-xs font-bold text-text-primary mb-2">اتجاه القبلة</span>
-            
-            {/* Minimal Compass UI */}
-            <div className="relative h-24 w-24 flex items-center justify-center mb-2" id="compass-indicator">
-              <div className="absolute inset-0 rounded-full border-2 border-dashed border-primary/20" />
-              {/* Center Mecca marker */}
-              <div className="absolute h-1.5 w-1.5 rounded-full bg-accent-gold" />
-              {/* Hand pointer */}
-              <div 
-                className="absolute h-12 w-0.5 bg-primary origin-bottom" 
-                style={{ transform: 'rotate(135.4deg)', bottom: '50%' }}
-              />
-              <Compass className="h-10 w-10 text-primary/40 animate-pulse-subtle" />
-            </div>
-
-            <p className="arabic-text text-[10px] font-semibold text-text-secondary">
-              زاوية القبلة: <span className="font-sans font-bold text-primary">135.4°</span> من الشمال
-            </p>
-
+        {state.error && !state.loading && (
+          <div className="px-4 py-10 flex flex-col items-center gap-4 text-center">
+            <p className="text-sm text-text-secondary">{state.error}</p>
             <button
-              onClick={() => alert(isAr ? 'تم تشغيل البوصلة في هاتفك لتحديد اتجاه الكعبة المشرفة بدقة.' : 'Compass active.')}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary text-white text-xs font-semibold px-4 py-1.5 shadow-sm active-press transition-colors hover:bg-primary-hover"
-              id="btn-open-compass"
+              id="btn-retry-prayer-times"
+              onClick={retry}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-hover transition-colors"
             >
-              <Compass className="h-3.5 w-3.5" />
-              <span className="arabic-text text-[10px]">افتح البوصلة</span>
+              <RotateCcw className="w-4 h-4" />
+              إعادة المحاولة
             </button>
           </div>
+        )}
 
+        {!state.loading && !state.error && state.prayerTimes && (
+          <div id="prayer-items-list" className="divide-y divide-border-custom/60">
+            {state.prayerTimes.prayers.map((prayer) => {
+              const clock = convertTo12Hour(prayer.time);
+              const isNext = nextPrayer?.prayer.id === prayer.id;
+              const enabled = notifPrefs[prayer.id] ?? true;
+              return (
+                <div
+                  key={prayer.id}
+                  id={`prayer-row-${prayer.id}`}
+                  className={`flex items-center gap-4 px-4 py-4 transition-colors ${
+                    isNext ? 'bg-primary border-primary text-white shadow-md scale-[1.01]' : 'hover:bg-surface-muted/60'
+                  }`}
+                >
+                  <div
+                    className={`w-2.5 h-2.5 rounded-full ${
+                      isNext ? 'bg-white' : nowMs < timeToMsSafe(prayer.time) ? 'bg-primary' : 'bg-text-secondary/40'
+                    }`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-semibold ${isNext ? 'text-white' : 'text-text-primary'}`}>{prayer.nameAr}</p>
+                    <p className={`text-xs ${isNext ? 'text-white/80' : 'text-text-secondary'} mt-0.5`} dir="ltr">
+                      {prayer.nameEn}
+                    </p>
+                  </div>
+                  <span
+                    className={`font-mono text-lg font-bold tabular-nums ${isNext ? 'text-white' : 'text-text-primary'}`}
+                    dir="ltr"
+                  >
+                    {clock.time} {clock.suffix === 'PM' ? 'م' : 'ص'}
+                  </span>
+                  <button
+                    id={`btn-toggle-notif-${prayer.id}`}
+                    onClick={(e) => toggleNotification(prayer.id, e)}
+                    aria-label={`تفعيل تذكير ${prayer.nameAr}`}
+                    className={`p-2 rounded-lg transition-colors ${
+                      isNext
+                        ? 'hover:bg-white/20 text-white'
+                        : enabled
+                          ? 'hover:bg-primary/10 text-primary'
+                          : 'hover:bg-surface-muted text-text-secondary/50'
+                    }`}
+                  >
+                    {enabled ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Method + DST row */}
+        <div className="flex flex-wrap items-center gap-4 px-4 py-4 border-t border-border-custom bg-surface-muted/40">
+          <label className="flex items-center gap-2 text-sm text-text-secondary">
+            طريقة الحساب
+            <select
+              id="method-select"
+              value={method}
+              onChange={(e) => changeMethod(e.target.value)}
+              className="rounded-lg border border-border-custom bg-surface px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              {PRAYER_METHODS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nameAr}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div id="dst-toggle-row" className="flex items-center gap-2">
+            <button
+              id="dst-toggle"
+              onClick={() => setDst((d) => !d)}
+              role="switch"
+              aria-checked={dst}
+              className={`w-10 h-5 rounded-full p-0.5 transition-colors ${dst ? 'bg-primary' : 'bg-text-secondary/30'}`}
+            >
+              <span
+                className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${dst ? 'translate-x-4.5' : 'translate-x-0.5'}`}
+                dir="ltr"
+              />
+            </button>
+            <span className="text-sm text-text-secondary">التوقيت الصيفي</span>
+          </div>
         </div>
       </div>
 
+      {/* Qibla compass */}
+      {state.coords && <QiblaCompass location={state.coords} />}
     </div>
   );
+};
+
+const timeToMsSafe = (timeStr: string): number => {
+  const [h, m] = timeStr.split(':').map(Number);
+  return (h * 60 + m) * 60 * 1000;
 };

@@ -26,6 +26,12 @@ export interface PrayerTime {
   time: string; // HH:MM
 }
 
+export interface PrayerLocation {
+  latitude: number;
+  longitude: number;
+  cityName?: string;
+}
+
 export interface QuranSurah {
   number: number;
   name: string;
@@ -43,6 +49,9 @@ export interface UserSettings {
   fontSize: 'small' | 'medium' | 'large';
   language: 'ar' | 'en';
   prayerNotifications: boolean;
+  prayerLocation?: PrayerLocation;
+  prayerMethod?: number;
+  prayerNotificationPrefs?: Record<PrayerTime['id'], boolean>;
   adhkarNotifications: boolean;
   generalNotifications: boolean;
   favorites: string[]; // List of Dhikr IDs

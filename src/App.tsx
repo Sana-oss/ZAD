@@ -33,7 +33,11 @@ const AppContent: React.FC = () => {
           <div className="mx-auto max-w-xl px-4 py-8" id="prayer-page-wrapper">
             <div className="text-center mb-6" id="prayer-page-title">
               <h1 className="arabic-text text-2xl sm:text-3xl font-black text-text-primary mb-2">مواقيت الصلاة</h1>
-              <p className="arabic-text text-xs text-text-secondary">مواعيد دقيقة للأذان في مدينة الرياض واتجاه القبلة المشرفة</p>
+              <p className="arabic-text text-xs text-text-secondary">
+                {settings.prayerLocation?.cityName
+                  ? `مواعيد دقيقة للأذان في ${settings.prayerLocation.cityName} واتجاه القبلة المشرفة`
+                  : 'مواعيد دقيقة للأذان واتجاه القبلة المشرفة'}
+              </p>
             </div>
             <PrayerTimesCard />
           </div>
