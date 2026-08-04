@@ -1,3 +1,21 @@
+export type DhikrCategory =
+  | 'morning'
+  | 'evening'
+  | 'sleep'
+  | 'prayer_after'
+  | 'entering_home'
+  | 'leaving_home'
+  | 'eating'
+  | 'yawning'
+  | 'toilet'
+  | 'sickness'
+  | 'fear'
+  | 'sadness'
+  | 'istikhara'
+  | 'travel'
+  | 'witr'
+  | 'tasbih';
+
 export interface Dhikr {
   id: string;
   text: string;
@@ -5,11 +23,11 @@ export interface Dhikr {
   reference: string;
   benefit?: string;
   count: number;
-  category: 'morning' | 'evening' | 'sleep' | 'prayer_after';
+  category: DhikrCategory;
 }
 
 export interface Category {
-  id: 'morning' | 'evening' | 'sleep' | 'prayer_after';
+  id: DhikrCategory;
   nameAr: string;
   nameEn: string;
   descriptionAr: string;

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { DHIKR_LIST, CATEGORIES } from '../data/adhkar';
-import { ArrowLeft, Search, Heart, Share2, Copy, Check, RotateCcw, Volume2, Sparkles, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Search, Heart, Share2, Copy, Check, RotateCcw, Volume2, Sparkles, ShieldCheck, Sun, Moon, Compass, Bed, Home, DoorOpen, UtensilsCrossed, Smile, Droplets, HeartPulse, Shield, Plane } from 'lucide-react';
 
 export const AdhkarSection: React.FC = () => {
   const { 
@@ -105,6 +105,28 @@ export const AdhkarSection: React.FC = () => {
     );
   };
 
+  const getCategoryIcon = (iconName: string) => {
+    const cls = "h-5 w-5 text-primary";
+    switch (iconName) {
+      case 'Sun': return <Sun className={cls} />;
+      case 'Moon': return <Moon className={cls} />;
+      case 'Bed': return <Bed className={cls} />;
+      case 'Compass': return <Compass className={cls} />;
+      case 'Home': return <Home className={cls} />;
+      case 'DoorOpen': return <DoorOpen className={cls} />;
+      case 'UtensilsCrossed': return <UtensilsCrossed className={cls} />;
+      case 'Mouth': return <Smile className={cls} />;
+      case 'Droplets': return <Droplets className={cls} />;
+      case 'HeartPulse': return <HeartPulse className={cls} />;
+      case 'Shield': return <Shield className={cls} />;
+      case 'Heart': return <Heart className={cls} />;
+      case 'Search': return <Search className={cls} />;
+      case 'Plane': return <Plane className={cls} />;
+      case 'Sparkles': return <Sparkles className={cls} />;
+      default: return <Sparkles className={cls} />;
+    }
+  };
+
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6 sm:py-8" id="adhkar-section">
       
@@ -179,7 +201,7 @@ export const AdhkarSection: React.FC = () => {
                     </span>
                   )}
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface-muted transition-all group-hover:bg-primary/5" id={`cat-list-icon-${cat.id}`}>
-                    <Sparkles className="h-5 w-5 text-primary" />
+                    {getCategoryIcon(cat.icon)}
                   </div>
                 </div>
 
@@ -220,7 +242,7 @@ export const AdhkarSection: React.FC = () => {
             <div className="text-right" id="category-title-block">
               <h1 className="arabic-text text-xl sm:text-2xl font-black text-text-primary flex items-center justify-end gap-2">
                 {isAr ? categoryInfo.nameAr : categoryInfo.nameEn}
-                <Sparkles className="h-5 w-5 text-accent-gold" />
+                {getCategoryIcon(categoryInfo.icon)}
               </h1>
               <p className="arabic-text text-xs text-text-secondary mt-1">
                 {isAr ? categoryInfo.descriptionAr : categoryInfo.descriptionEn}

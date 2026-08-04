@@ -6,16 +6,16 @@ import { StatsSection } from './StatsSection';
 import { PrayerTimesCard } from './PrayerTimesCard';
 import { MasbahaCard } from './MasbahaCard';
 import { CATEGORIES } from '../data/adhkar';
-import { Sun, Moon, Bed, Compass, Heart } from 'lucide-react';
+import { Sun, Moon, Bed, Compass, Heart, Home, DoorOpen, UtensilsCrossed, Smile, Droplets, HeartPulse, Shield, Search, Plane, Sparkles } from 'lucide-react';
 
 export const HomeSection: React.FC = () => {
   const { settings, setActiveTab, setActiveCategory } = useApp();
 
   const isAr = settings.language === 'ar';
 
-  const handleCategoryClick = (id: 'morning' | 'evening' | 'sleep' | 'prayer_after') => {
+  const handleCategoryClick = (id: string) => {
     setActiveTab('adhkar');
-    setActiveCategory(id);
+    setActiveCategory(id as any);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -24,6 +24,18 @@ export const HomeSection: React.FC = () => {
       case 'Sun': return <Sun className="h-6 w-6 text-accent-gold group-hover:animate-spin" style={{ animationDuration: '10s' }} />;
       case 'Moon': return <Moon className="h-6 w-6 text-primary" />;
       case 'Bed': return <Bed className="h-6 w-6 text-primary" />;
+      case 'Compass': return <Compass className="h-6 w-6 text-primary" />;
+      case 'Home': return <Home className="h-6 w-6 text-primary" />;
+      case 'DoorOpen': return <DoorOpen className="h-6 w-6 text-primary" />;
+      case 'UtensilsCrossed': return <UtensilsCrossed className="h-6 w-6 text-primary" />;
+      case 'Mouth': return <Smile className="h-6 w-6 text-primary" />;
+      case 'Droplets': return <Droplets className="h-6 w-6 text-primary" />;
+      case 'HeartPulse': return <HeartPulse className="h-6 w-6 text-primary" />;
+      case 'Shield': return <Shield className="h-6 w-6 text-primary" />;
+      case 'Heart': return <Heart className="h-6 w-6 text-primary" />;
+      case 'Search': return <Search className="h-6 w-6 text-primary" />;
+      case 'Plane': return <Plane className="h-6 w-6 text-primary" />;
+      case 'Sparkles': return <Sparkles className="h-6 w-6 text-primary" />;
       default: return <Compass className="h-6 w-6 text-primary" />;
     }
   };
@@ -57,8 +69,8 @@ export const HomeSection: React.FC = () => {
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" id="categories-cards-grid">
-              {CATEGORIES.slice(0, 3).map((cat) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4" id="categories-cards-grid">
+              {CATEGORIES.slice(0, 6).map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => handleCategoryClick(cat.id)}
