@@ -7,7 +7,7 @@ import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navigation } from './components/Navigation';
 import { HomeSection } from './components/HomeSection';
-import { AdhkarSection } from './components/AdhkarSection';
+import { AdhkarListPage } from './components/AdhkarListPage';
 import { QuranSection } from './components/QuranSection';
 import { HadithSection } from './components/HadithSection';
 import { PrayerTimesCard } from './components/PrayerTimesCard';
@@ -23,7 +23,7 @@ const AppContent: React.FC = () => {
       case 'home':
         return <HomeSection />;
       case 'adhkar':
-        return <AdhkarSection />;
+        return <AdhkarListPage />;
       case 'quran':
         return <QuranSection />;
       case 'hadith':

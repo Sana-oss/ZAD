@@ -80,6 +80,10 @@ export interface UserSettings {
   } | null;
   masbahaCount: number;
   masbahaPhrase: string;
+  misbahaStats: {
+    todayCount: number;
+    lastResetDate: string; // YYYY-MM-DD
+  };
   quranViewMode: 'surah' | 'juz' | 'page' | 'mushaf';
   adhkarStreak: {
     count: number;

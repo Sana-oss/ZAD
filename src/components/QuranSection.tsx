@@ -193,6 +193,15 @@ export const QuranSection: React.FC = () => {
           data = await quranService.getVerses(selectedSurahNum);
         }
         setVerses(data);
+        if (viewMode === 'surah' && data.length > 0) {
+          updateSettings({
+            quranProgress: {
+              surahNumber: selectedSurahNum,
+              verseNumber: 1,
+              progressPercentage: 0,
+            }
+          });
+        }
       } catch (err) {
         console.error(`Failed to load verses for ${viewMode}`, err);
       } finally {

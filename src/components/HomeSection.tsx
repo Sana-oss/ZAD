@@ -6,12 +6,26 @@ import { StatsSection } from './StatsSection';
 import { PrayerTimesCard } from './PrayerTimesCard';
 import { MasbahaCard } from './MasbahaCard';
 import { CATEGORIES } from '../data/adhkar';
-import { Sun, Moon, Bed, Compass, Heart, Home, DoorOpen, UtensilsCrossed, Smile, Droplets, HeartPulse, Shield, Search, Plane, Sparkles, Flame } from 'lucide-react';
+import { getDailyTip } from '../data/dailyTips';
+import { Sun, Moon, Bed, Compass, Heart, Home, DoorOpen, UtensilsCrossed, Smile, Droplets, HeartPulse, Shield, Search, Plane, Sparkles, Flame, Lightbulb, CalendarDays } from 'lucide-react';
 
 export const HomeSection: React.FC = () => {
   const { settings, setActiveTab, setActiveCategory } = useApp();
 
   const isAr = settings.language === 'ar';
+  const todayTip = getDailyTip();
+
+  const getHijriDate = () => {
+    try {
+      return new Intl.DateTimeFormat(isAr ? 'ar-SA-u-ca-islamic' : 'en-US-u-ca-islamic', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }).format(new Date());
+    } catch {
+      return '';
+    }
+  };
 
   const handleCategoryClick = (id: string) => {
     setActiveTab('adhkar');
@@ -42,7 +56,13 @@ export const HomeSection: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8" id="home-dashboard">
-      
+
+      {/* Hijri Date Header */}
+      <div className="flex items-center justify-center gap-2 mb-6 text-text-secondary" id="hijri-date-header">
+        <CalendarDays className="h-4 w-4 text-primary" />
+        <span className="arabic-text text-sm font-semibold">{getHijriDate()}</span>
+      </div>
+
       {/* 2-Column Responsive Bento Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start" id="home-bento-grid">
         
@@ -122,28 +142,22 @@ export const HomeSection: React.FC = () => {
             {/* Continue Reading Quran progress */}
             <QuranProgressCard />
 
-            {/* Quote Graphic Card (Inspired by Image 3) */}
-            <div 
-              className="relative rounded-3xl overflow-hidden shadow-sm border border-border-custom bg-primary/10 flex flex-col justify-end p-6 h-[180px] sm:h-auto"
-              id="quote-illustration-card"
+            {/* Daily Tip Card */}
+            <div
+              className="rounded-3xl border border-amber-500/20 bg-amber-500/10 p-6 flex flex-col justify-between h-[180px] sm:h-auto transition-all duration-300 hover:shadow-md hover:border-amber-500/30"
+              id="daily-tip-card"
             >
-              {/* Illustration graphic representing nature/tranquility */}
-              <div className="absolute inset-0 bg-gradient-to-t from-primary to-primary/40 z-10" />
-              <img 
-                src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=60&referrerpolicy=no-referrer"
-                alt="Palm trees tranquility beach"
-                className="absolute inset-0 w-full h-full object-cover grayscale opacity-25"
-                referrerPolicy="no-referrer"
-              />
-              
-              <div className="relative z-20 text-right text-white" id="quote-text-container">
-                <p className="arabic-text text-md sm:text-lg font-bold leading-relaxed mb-1">
-                  "أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ"
-                </p>
-                <p className="arabic-text text-[10px] font-medium text-white/80">
-                  سورة الرعد - الآية ٢٨
-                </p>
+              <div className="flex items-center gap-2 mb-3" id="daily-tip-header">
+                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-500/15 shrink-0">
+                  <Lightbulb className="h-5 w-5 text-amber-600" />
+                </div>
+                <h3 className="arabic-text text-sm font-bold text-amber-700">
+                  {isAr ? 'نصيحة اليوم' : 'Tip of the Day'}
+                </h3>
               </div>
+              <p className="arabic-text text-sm leading-relaxed text-text-primary line-clamp-4">
+                {isAr ? todayTip.textAr : todayTip.textEn}
+              </p>
             </div>
 
           </div>

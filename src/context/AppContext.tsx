@@ -54,13 +54,13 @@ const DEFAULT_SETTINGS: UserSettings = {
   adhkarNotifications: true,
   generalNotifications: false,
   favorites: [],
-  quranProgress: {
-    surahNumber: 18,
-    verseNumber: 45,
-    progressPercentage: 65,
-  },
+  quranProgress: null,
   masbahaCount: 0,
   masbahaPhrase: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ',
+  misbahaStats: {
+    todayCount: 0,
+    lastResetDate: '',
+  },
   quranViewMode: 'surah',
   adhkarStreak: {
     count: 0,
@@ -134,11 +134,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isFavorite = (id: string) => settings.favorites.includes(id);
 
   const incrementMasbaha = () => {
-    updateSettings({ masbahaCount: settings.masbahaCount + 1 });
+    const today = new Date().toISOString().split('T')[0];
+    const currentDaily = settings.misbahaStats.lastResetDate === today ? settings.misbahaStats.todayCount : 0;
+    updateSettings({
+      masbahaCount: settings.masbahaCount + 1,
+      misbahaStats: {
+        todayCount: currentDaily + 1,
+        lastResetDate: today,
+      },
+    });
   };
 
   const resetMasbaha = () => {
-    updateSettings({ masbahaCount: 0 });
+    updateSettings({
+      masbahaCount: 0,
+      misbahaStats: { todayCount: 0, lastResetDate: new Date().toISOString().split('T')[0] },
+    });
   };
 
   const changeMasbahaPhrase = (phrase: string) => {
@@ -175,12 +186,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  // Daily reset: clear adhkarCompletedToday when a new day starts
+  // Daily reset: clear adhkarCompletedToday and misbahaStats when a new day starts
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     const lastDate = settings.adhkarStreak.lastCompletedDate;
     if (lastDate !== today) {
       updateSettings({ adhkarCompletedToday: {} });
+    }
+    if (settings.misbahaStats.lastResetDate !== today) {
+      updateSettings({ misbahaStats: { todayCount: 0, lastResetDate: today } });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

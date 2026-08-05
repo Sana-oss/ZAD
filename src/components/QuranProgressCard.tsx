@@ -5,18 +5,19 @@ import { BookOpen } from 'lucide-react';
 export const QuranProgressCard: React.FC = () => {
   const { settings, setActiveTab, setQuranSearchQuery } = useApp();
 
+  const isAr = settings.language === 'ar';
+  const progress = settings.quranProgress;
+
   const handleContinueReading = () => {
-    // Jump to Quran tab
     setActiveTab('quran');
-    // Pre-fill search or select Al-Kahf (surah number 18)
-    setQuranSearchQuery('الكهف');
+    if (progress?.surahName) {
+      setQuranSearchQuery(progress.surahName);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const isAr = settings.language === 'ar';
-
   return (
-    <div 
+    <div
       className="rounded-3xl border border-border-custom bg-surface p-6 shadow-sm flex items-center justify-between gap-6 relative overflow-hidden transition-all duration-300 hover:shadow-md hover:border-primary/20"
       id="quran-progress-card"
     >
@@ -27,23 +28,31 @@ export const QuranProgressCard: React.FC = () => {
 
       <div className="flex flex-col gap-3 w-full pr-0 sm:pr-8" id="progress-content">
         <div className="flex items-center justify-between" id="progress-header">
-          <span className="font-sans font-extrabold text-sm text-primary tracking-wide">65%</span>
-          <h3 className="arabic-text text-md font-bold text-text-primary">متابعة القراءة</h3>
+          <span className="font-sans font-extrabold text-sm text-primary tracking-wide">
+            {progress ? `${progress.progressPercentage}%` : '0%'}
+          </span>
+          <h3 className="arabic-text text-md font-bold text-text-primary">
+            {isAr ? 'متابعة القراءة' : 'Continue Reading'}
+          </h3>
         </div>
 
         {/* Custom Progress Bar */}
         <div className="w-full bg-border-custom/50 rounded-full h-2" id="progress-bar-bg">
-          <div 
-            className="bg-primary h-2 rounded-full transition-all duration-500" 
-            style={{ width: '65%' }}
+          <div
+            className="bg-primary h-2 rounded-full transition-all duration-500"
+            style={{ width: `${progress ? progress.progressPercentage : 0}%` }}
             id="progress-bar-fill"
           />
         </div>
 
         <p className="arabic-text text-xs font-semibold text-text-secondary leading-relaxed mt-1">
-          {isAr 
-            ? 'لقد توقفت عند سورة الكهف - الآية ٤٥. هل تود إكمال القراءة الآن؟' 
-            : 'You stopped at Surah Al-Kahf - Verse 45. Would you like to continue reading now?'}
+          {progress
+            ? (isAr
+                ? `لقد توقفت عند سورة ${progress.surahName} - الآية ${progress.verseNumber}. هل تود إكمال القراءة الآن؟`
+                : `You stopped at Surah ${progress.surahName} - Verse ${progress.verseNumber}. Continue reading?`)
+            : (isAr
+                ? 'لم تبدأ القراءة بعد. اضغط لبدء رحلتك مع القرآن الكريم.'
+                : "You haven't started reading yet. Tap to begin your journey with the Quran.")}
         </p>
 
         {/* Action Button */}
@@ -53,7 +62,9 @@ export const QuranProgressCard: React.FC = () => {
           id="btn-continue-reading"
         >
           <BookOpen className="h-4 w-4" />
-          <span className="arabic-text">{isAr ? 'إكمال القراءة' : 'Continue Reading'}</span>
+          <span className="arabic-text">
+            {progress ? (isAr ? 'إكمال القراءة' : 'Continue Reading') : (isAr ? 'ابدأ القراءة' : 'Start Reading')}
+          </span>
         </button>
       </div>
     </div>

@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Share2, Copy, Check, Bookmark, Heart } from 'lucide-react';
+import { getDailyQuote } from '../data/dailyQuotes';
 
 export const AyaCard: React.FC = () => {
   const { settings } = useApp();
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
 
-  const ayaText = 'وَإِذَا سَأَلَكَ عِبَادِي عَنِّي فَإِنِّي قَرِيبٌ ۖ أُجِيبُ دَعْوَةَ الدَّاعِ إِذَا دَعَانِ ۖ';
-  const surahInfo = 'سورة البقرة - الآية ١٨٦';
+  const todayQuote = getDailyQuote();
+  const isAr = settings.language === 'ar';
+  const ayaText = isAr ? todayQuote.textAr : todayQuote.textEn;
+  const surahInfo = isAr ? todayQuote.surahAr : todayQuote.surahEn;
 
   const handleCopy = async () => {
     try {
@@ -32,8 +35,6 @@ export const AyaCard: React.FC = () => {
       setTimeout(() => setShared(false), 2000);
     }
   };
-
-  const isAr = settings.language === 'ar';
 
   return (
     <div 
