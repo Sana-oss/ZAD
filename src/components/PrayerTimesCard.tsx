@@ -13,6 +13,7 @@ import {
   PrayerTimesData,
 } from '../services/prayerTimesService';
 import { QiblaCompass } from './QiblaCompass';
+import { AdhanSettingsCard } from './AdhanSettingsCard';
 import { PrayerTime } from '../types';
 
 const service = new PrayerTimesService();
@@ -106,9 +107,11 @@ export const PrayerTimesCard: React.FC = () => {
         if (cancelled) return;
         setState((prev) => ({ ...prev, prayerTimes: result, loading: false }));
 
-        // Persist location once we know it resolves
-        const loc = { latitude: state.coords.latitude, longitude: state.coords.longitude, cityName: state.cityName };
-        updateSettings({ prayerLocation: loc as Parameters<typeof updateSettings>[0]['prayerLocation'] });
+        // Persist location once we know it resolves (only if not already saved)
+        if (!settings.prayerLocation?.cityName) {
+          const loc = { latitude: state.coords.latitude, longitude: state.coords.longitude, cityName: state.cityName };
+          updateSettings({ prayerLocation: loc as Parameters<typeof updateSettings>[0]['prayerLocation'] });
+        }
       } catch {
         if (!cancelled) setState((prev) => ({ ...prev, loading: false, error: 'تعذر تحميل مواقيت الصلاة. تأكد من اتصالك بالإنترنت ثم أعد المحاولة.' }));
       }
@@ -117,7 +120,7 @@ export const PrayerTimesCard: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [state.coords, method, state.cityName, state.reloadKey, updateSettings]);
+  }, [state.coords, method, state.reloadKey]);
 
   const toggleNotification = useCallback(
     (prayerId: string, e: React.MouseEvent) => {
@@ -345,6 +348,9 @@ export const PrayerTimesCard: React.FC = () => {
 
       {/* Qibla compass */}
       {state.coords && <QiblaCompass location={state.coords} />}
+
+      {/* Adhan sound settings */}
+      <AdhanSettingsCard />
     </div>
   );
 };

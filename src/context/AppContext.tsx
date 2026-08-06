@@ -70,6 +70,11 @@ const DEFAULT_SETTINGS: UserSettings = {
     lastCompletedDate: '',
   },
   adhkarCompletedToday: {},
+  adhanSettings: {
+    type: 'full_adhan',
+    soundOption: 'makkah',
+    volume: 80,
+  },
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);

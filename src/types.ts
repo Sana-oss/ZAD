@@ -95,6 +95,12 @@ export interface Hadith {
   commentary?: HadithCommentary;
 }
 
+export interface AdhanSettings {
+  type: 'takbeer' | 'full_adhan' | 'call';
+  soundOption: string;
+  volume: number;
+}
+
 export interface UserSettings {
   theme: 'light' | 'dark';
   fontFamily: 'ibmPlexSans' | 'tajawal';
@@ -127,4 +133,5 @@ export interface UserSettings {
   adhkarCompletedToday: {
     [key: string]: boolean | undefined;
   };
+  adhanSettings?: AdhanSettings;
 }
