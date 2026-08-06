@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Volume1, Vibrate, BellOff, Music, Play, Square, BadgeCheck } from 'lucide-react';
+import { Volume2, Volume1, Vibrate, BellOff, Music, Play, Square, BadgeCheck } from 'lucide-react';
 import { ADHAN_TYPES, ADHAN_SOUND_OPTIONS } from '../data/adhanSounds';
 import { adhanAudioService } from '../services/adhanAudioService';
 
@@ -133,6 +133,7 @@ export const AdhanSettingsCard: React.FC = () => {
                   {sound.id === 'none' && <BellOff className="h-5 w-5" />}
                   {sound.id === 'silent' && <Volume1 className="h-5 w-5" />}
                   {sound.id === 'vibration' && <Vibrate className="h-5 w-5" />}
+                  {sound.id === 'default' && <Volume2 className="h-5 w-5 text-primary" />}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-text-primary">{sound.nameAr}</p>
@@ -145,6 +146,24 @@ export const AdhanSettingsCard: React.FC = () => {
                   }`}
                 />
               </div>
+
+              {sound.audioUrl && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePlaySound(sound.id, sound.audioUrl);
+                  }}
+                  className="ml-2 p-1.5 rounded-lg hover:bg-primary/10 transition-colors active-press"
+                  title="استمع"
+                  id={`play-${sound.id}`}
+                >
+                  {playingSound === sound.id ? (
+                    <Square className="h-4 w-4 text-red-500" />
+                  ) : (
+                    <Play className="h-4 w-4 text-primary" />
+                  )}
+                </button>
+              )}
             </div>
           ))}
         </div>

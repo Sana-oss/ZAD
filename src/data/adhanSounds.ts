@@ -22,6 +22,12 @@ export const ADHAN_SOUND_OPTIONS: AdhanSound[] = [
     nameAr: 'اهتزاز فقط',
     category: 'basic',
   },
+  {
+    id: 'default',
+    nameAr: 'الصوت الافتراضي',
+    category: 'basic',
+    audioUrl: '/sounds/makkah.mp3',
+  },
 
 
   {
