@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { AyaCard } from './AyaCard';
+import { HadithOfTheDay } from './HadithOfTheDay';
 import { QuranProgressCard } from './QuranProgressCard';
 import { StatsSection } from './StatsSection';
 import { PrayerTimesCard } from './PrayerTimesCard';
@@ -78,7 +79,10 @@ export const HomeSection: React.FC = () => {
           {/* 1. Aya of the Day Banner */}
           <AyaCard />
 
-          {/* 1.5 Streak Card */}
+          {/* 1.5 Hadith of the Day Banner */}
+          <HadithOfTheDay />
+
+          {/* 1.75 Streak Card */}
           {settings.adhkarStreak.count > 0 && (
             <div className="rounded-3xl bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/20 p-6 text-center">
               <div className="flex items-center justify-center gap-2 mb-2">

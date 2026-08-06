@@ -4,8 +4,7 @@ import App from './App.tsx';
 import './index.css';
 import { hadithService } from './services/HadithService';
 
-// Initialize the HadithService on app startup to sync data in the background
-hadithService.initialize().catch(console.error);
+// Local mock data loaded synchronously
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

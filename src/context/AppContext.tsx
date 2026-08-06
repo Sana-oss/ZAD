@@ -10,6 +10,8 @@ interface AppContextType {
   updateSettings: (newSettings: Partial<UserSettings>) => void;
   toggleFavorite: (id: string) => void;
   isFavorite: (id: string) => boolean;
+  toggleFavoriteHadith: (id: string) => void;
+  isFavoriteHadith: (id: string) => boolean;
   incrementMasbaha: () => void;
   resetMasbaha: () => void;
   changeMasbahaPhrase: (phrase: string) => void;
@@ -54,6 +56,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   adhkarNotifications: true,
   generalNotifications: false,
   favorites: [],
+  favoriteHadiths: [],
   quranProgress: null,
   masbahaCount: 0,
   masbahaPhrase: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ',
@@ -132,6 +135,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const isFavorite = (id: string) => settings.favorites.includes(id);
+
+  const toggleFavoriteHadith = (id: string) => {
+    setSettings((prev) => {
+      const favoriteHadiths = prev.favoriteHadiths.includes(id)
+        ? prev.favoriteHadiths.filter((favId) => favId !== id)
+        : [...prev.favoriteHadiths, id];
+      return { ...prev, favoriteHadiths };
+    });
+  };
+
+  const isFavoriteHadith = (id: string) => settings.favoriteHadiths.includes(id);
 
   const incrementMasbaha = () => {
     const today = new Date().toISOString().split('T')[0];
@@ -246,6 +260,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateSettings,
         toggleFavorite,
         isFavorite,
+        toggleFavoriteHadith,
+        isFavoriteHadith,
         incrementMasbaha,
         resetMasbaha,
         changeMasbahaPhrase,

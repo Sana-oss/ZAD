@@ -61,6 +61,40 @@ export interface QuranSurah {
   }[];
 }
 
+export type HadithGrade = 'Sahih' | 'Hasan' | 'Daif' | 'Unknown';
+
+export interface NarratorProfile {
+  fullName: string;
+  totalNarrations: number;
+  deathYear: string;
+}
+
+export interface BookMetadata {
+  author: string;
+  totalCount: number;
+  authenticityNotes: string;
+}
+
+export interface HadithCommentary {
+  complexTerms: Record<string, string>;
+  keyLessons: string[];
+  practicalApplications: string[];
+}
+
+export interface Hadith {
+  id: string;
+  textAr: string;
+  textEn: string;
+  narrator: string;
+  book: string;
+  grade: HadithGrade;
+  reference: string;
+  tags: string[];
+  narratorProfile?: NarratorProfile;
+  bookMetadata?: BookMetadata;
+  commentary?: HadithCommentary;
+}
+
 export interface UserSettings {
   theme: 'light' | 'dark';
   fontFamily: 'ibmPlexSans' | 'tajawal';
@@ -73,6 +107,7 @@ export interface UserSettings {
   adhkarNotifications: boolean;
   generalNotifications: boolean;
   favorites: string[]; // List of Dhikr IDs
+  favoriteHadiths: string[]; // List of Hadith IDs
   quranProgress: {
     surahNumber: number;
     verseNumber: number;
