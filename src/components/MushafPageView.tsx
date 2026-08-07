@@ -18,6 +18,15 @@ const MPage: React.FC<MushafPageViewProps> = ({ pageNumber, onPageChange }) => {
 
   const isAr = settings.language === 'ar';
   const isCream = settings.quranTheme === 'cream';
+  // Quran text color: adapts to the reading panel's actual background.
+  // - Cream theme: always light background (#FAF6EC) → dark text
+  // - White theme: bg-surface (light in light mode, dark in dark mode) → dark text in light mode, light text in dark mode
+  const isDarkMode = settings.theme === 'dark';
+  const quranTextColor = isCream 
+    ? '#2B2519' 
+    : isDarkMode 
+      ? '#F3F4F1' 
+      : '#1F2937';
 
   useEffect(() => {
     let cancelled = false;
@@ -97,7 +106,7 @@ const MPage: React.FC<MushafPageViewProps> = ({ pageNumber, onPageChange }) => {
   const pushVerse = (v: QuranVerse) => {
     const num = v.verseKey.split(':').map(Number)[1];
     content.push(
-      <span key={v.verseKey} className="text-text-primary">
+      <span key={v.verseKey} style={{ color: quranTextColor }}>
         {v.textUthmani}
         <span className="inline-flex items-center justify-center relative mx-2 select-none align-middle" style={{ top: '-1px' }}>
           <svg className="w-6 h-6 text-amber-600/60 dark:text-amber-500/60 fill-none stroke-current" viewBox="0 0 24 24">

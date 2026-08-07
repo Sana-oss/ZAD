@@ -82,12 +82,24 @@ export const QuranSection: React.FC = () => {
   // Quran.com Display Settings
   const [showTranslation, setShowTranslation] = useState(false);
   const [readingMode, setReadingMode] = useState<'verse' | 'continuous'>('continuous');
-  const [quranTheme, setQuranTheme] = useState<'white' | 'cream'>('white');
+  const [quranTheme, setQuranTheme] = useState<'white' | 'cream'>(
+    (settings.quranTheme as 'white' | 'cream') || 'white'
+  );
   const [fontSizePercent, setFontSizePercent] = useState<number>(100);
   const [isSavedProgress, setIsSavedProgress] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
+
+  // Quran text color: adapts to the reading panel's actual background.
+  // - Cream theme: always light background (#FAF6EC) → dark text
+  // - White theme: bg-surface (light in light mode, dark in dark mode) → dark text in light mode, light text in dark mode
+  const isDarkMode = settings.theme === 'dark';
+  const quranTextColor = quranTheme === 'cream' 
+    ? '#2B2519' 
+    : isDarkMode 
+      ? '#F3F4F1' 
+      : '#1F2937';
 
   useEffect(() => {
     // Set sidebar closed on mobile/tablet initially for optimized initial reading experience
@@ -153,6 +165,11 @@ export const QuranSection: React.FC = () => {
   useEffect(() => {
     updateSettings({ quranViewMode: viewMode });
   }, [viewMode]);
+
+  // Persist quranTheme to settings whenever it changes
+  useEffect(() => {
+    updateSettings({ quranTheme });
+  }, [quranTheme]);
 
   // Fetch Juz list on mount
   useEffect(() => {
@@ -608,10 +625,11 @@ export const QuranSection: React.FC = () => {
             {/* Surah Bismillah - only in surah mode */}
             {viewMode === 'surah' && selectedSurahNum !== 1 && selectedSurahNum !== 9 && (
               <div 
-                className="text-center quran-text text-3xl sm:text-4xl my-10 text-primary/80 tracking-wide font-normal select-none"
+                className="text-center quran-text text-3xl sm:text-4xl my-10 tracking-wide font-normal select-none"
                 style={{
                   textShadow: '0 1px 2px rgba(0,0,0,0.05)',
                   fontFeatureSettings: '"ccmp" 1, "locl" 1, "rlig" 1, "calt" 1',
+                  color: quranTextColor,
                 }}
                 id="mushaf-bismillah"
               >
@@ -727,11 +745,12 @@ export const QuranSection: React.FC = () => {
                         {/* Right: Beautiful Arabic text */}
                         <div className="text-right flex-1" id={`verse-text-container-${v.verseNumber}`}>
                           <p 
-                            className="quran-text text-right tracking-wide leading-[2.2] text-text-primary"
+                            className="quran-text text-right tracking-wide leading-[2.2]"
                             dir="rtl"
                             lang="ar"
                             style={{ 
                               fontSize: `${fontSizePercent * 0.18 + 18}px`,
+                              color: quranTextColor,
                             }}
                           >
                             {v.textUthmani}
@@ -789,7 +808,8 @@ export const QuranSection: React.FC = () => {
                   style={{ 
                     fontSize: `${fontSizePercent * 0.18 + 18}px`,
                     textAlign: 'justify',
-                    textJustify: 'inter-word'
+                    textJustify: 'inter-word',
+                    color: quranTextColor,
                   }}
                   id="mushaf-verses-continuous"
                 >
@@ -809,8 +829,9 @@ export const QuranSection: React.FC = () => {
                               ? 'bg-amber-500/15 text-amber-900 dark:text-amber-100 ring-1 ring-amber-500/20 shadow-sm'
                               : isHovered || isActive
                                 ? 'bg-primary/5 text-primary ring-1 ring-primary/10 shadow-sm'
-                                : 'text-text-primary hover:bg-primary/5 hover:text-primary'
+                                : 'hover:bg-primary/5 hover:text-primary'
                         }`}
+                        style={{ color: quranTextColor }}
                         onMouseEnter={() => setHoveredVerseNumber(v.verseNumber)}
                         onMouseLeave={() => setHoveredVerseNumber(null)}
                         onClick={(e) => {
@@ -1298,7 +1319,7 @@ export const QuranSection: React.FC = () => {
                             </span>
                           </div>
 
-                          <p className="quran-text text-lg text-text-primary text-right leading-relaxed" dir="rtl" lang="ar">
+                          <p className="quran-text text-lg text-right leading-relaxed" dir="rtl" lang="ar" style={{ color: quranTextColor }}>
                             {res.textUthmani}
                           </p>
 

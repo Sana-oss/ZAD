@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { Clock, MapPin, Compass, Bell, BellOff, RotateCcw } from 'lucide-react';
 import {
@@ -9,7 +9,9 @@ import {
   PRAYER_METHODS,
   convertTo12Hour,
   getNextPrayer,
+  timeToMs,
   LocationCoords,
+  LocationError,
   PrayerTimesData,
 } from '../services/prayerTimesService';
 import { QiblaCompass } from './QiblaCompass';
@@ -21,23 +23,37 @@ const service = new PrayerTimesService();
 const ARABIC_WEEKDAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const ARABIC_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 
+/** Geolocation state machine: distinguishes loading / success / permission-denied / error. */
+type LocationStatus = 'idle' | 'loading' | 'success' | 'permission-denied' | 'error';
+
 interface PrayerCardState {
   coords: LocationCoords | null;
   cityName: string;
+  locationStatus: LocationStatus;
   prayerTimes: PrayerTimesData | null;
   loading: boolean;
   error: string | null;
   reloadKey: number;
 }
 
+const LOCATION_STATUS_MESSAGE: Record<LocationStatus, string | null> = {
+  idle: null,
+  loading: 'جارٍ تحديد موقعك...',
+  success: null,
+  'permission-denied':
+    'تعذر الوصول إلى موقعك بسبب رفض الإذن. تم استخدام موقع افتراضي (الرياض). يمكنك تحديث الإذن من إعدادات المتصفح.',
+  error: 'تعذر تحديد موقعك. تم استخدام موقع افتراضي (الرياض).',
+};
+
 export const PrayerTimesCard: React.FC = () => {
   const { settings, updateSettings } = useApp();
 
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   const [dst, setDst] = useState(false);
   const [state, setState] = useState<PrayerCardState>({
     coords: null,
     cityName: settings.prayerLocation?.cityName || '',
+    locationStatus: 'idle',
     prayerTimes: null,
     loading: true,
     error: null,
@@ -47,28 +63,40 @@ export const PrayerTimesCard: React.FC = () => {
   const method = settings.prayerMethod ?? DEFAULT_METHOD;
   const notifPrefs = settings.prayerNotificationPrefs ?? DEFAULT_NOTIF_PREFS;
 
-  // Sync current time every second
+  // Sync current time every second — cleaned up on unmount to prevent leaks.
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Request browser notification permission on mount
+  // Request browser notification permission on mount.
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
   }, []);
 
-  // Resolve coordinates: saved location -> geolocation -> default
+  // Resolve coordinates: saved location -> geolocation -> graceful fallback.
   useEffect(() => {
     let cancelled = false;
+
     const resolveLocation = async () => {
+      // Preferred: a previously saved location.
       if (settings.prayerLocation?.latitude && settings.prayerLocation?.longitude) {
         if (!cancelled) {
-          setState((prev) => ({ ...prev, coords: settings.prayerLocation as LocationCoords, loading: false }));
+          setState((prev) => ({
+            ...prev,
+            coords: settings.prayerLocation as LocationCoords,
+            cityName: settings.prayerLocation?.cityName || prev.cityName,
+            locationStatus: 'success',
+            loading: false,
+          }));
         }
         return;
+      }
+
+      if (!cancelled) {
+        setState((prev) => ({ ...prev, locationStatus: 'loading' }));
       }
 
       try {
@@ -80,47 +108,63 @@ export const PrayerTimesCard: React.FC = () => {
             ...prev,
             coords: { latitude: geo.latitude, longitude: geo.longitude },
             cityName: city,
+            locationStatus: 'success',
             loading: false,
           }));
         }
-      } catch {
-        if (!cancelled) {
-          setState((prev) => ({ ...prev, coords: DEFAULT_LOCATION, cityName: DEFAULT_LOCATION.cityName || '', loading: false }));
-        }
+      } catch (err) {
+        if (cancelled) return;
+
+        setState((prev) => ({
+          ...prev,
+          coords: DEFAULT_LOCATION,
+          cityName: DEFAULT_LOCATION.cityName || prev.cityName,
+          locationStatus: LocationError.isPermissionDenied(err) ? 'permission-denied' : 'error',
+          loading: false,
+        }));
       }
     };
+
     resolveLocation();
     return () => {
       cancelled = true;
     };
   }, [settings.prayerLocation]);
 
-  // Fetch prayer times
+  // Fetch prayer times.
   useEffect(() => {
-    if (!state.coords) return;
+    const coords = state.coords;
+    if (!coords) return;
     let cancelled = false;
 
     const fetchTimes = async () => {
       setState((prev) => ({ ...prev, loading: true, error: null }));
       try {
-        const result = await service.getPrayerTimes(state.coords.latitude, state.coords.longitude, method);
+        const result = await service.getPrayerTimes(coords.latitude, coords.longitude, method);
         if (cancelled) return;
         setState((prev) => ({ ...prev, prayerTimes: result, loading: false }));
 
-        // Persist location once we know it resolves (only if not already saved)
+        // Persist location once it resolves (only if not already saved).
         if (!settings.prayerLocation?.cityName) {
-          const loc = { latitude: state.coords.latitude, longitude: state.coords.longitude, cityName: state.cityName };
+          const loc = { latitude: coords.latitude, longitude: coords.longitude, cityName: state.cityName };
           updateSettings({ prayerLocation: loc as Parameters<typeof updateSettings>[0]['prayerLocation'] });
         }
       } catch {
-        if (!cancelled) setState((prev) => ({ ...prev, loading: false, error: 'تعذر تحميل مواقيت الصلاة. تأكد من اتصالك بالإنترنت ثم أعد المحاولة.' }));
+        if (!cancelled) {
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: 'تعذر تحميل مواقيت الصلاة. تأكد من اتصالك بالإنترنت ثم أعد المحاولة.',
+          }));
+        }
       }
     };
+
     fetchTimes();
     return () => {
       cancelled = true;
     };
-  }, [state.coords, method, state.reloadKey]);
+  }, [state.coords, method, state.reloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleNotification = useCallback(
     (prayerId: string, e: React.MouseEvent) => {
@@ -136,18 +180,33 @@ export const PrayerTimesCard: React.FC = () => {
     [settings.prayerNotificationPrefs, updateSettings],
   );
 
-  const changeMethod = (id: string) => {
+  const changeMethod = useCallback((id: string) => {
     updateSettings({ prayerMethod: Number(id) });
-  };
+  }, [updateSettings]);
 
-  const retry = () => {
+  const retry = useCallback(() => {
     setState((prev) => ({ ...prev, reloadKey: prev.reloadKey + 1 }));
-  };
+  }, []);
 
-  const nowMs = currentTime.getHours() * 3600000 + currentTime.getMinutes() * 60000 + currentTime.getSeconds() * 1000;
-  const nextPrayer = state.prayerTimes ? getNextPrayer(state.prayerTimes.prayers, currentTime) : null;
+  // Memoized derivations to avoid recomputation on every one-second tick.
+  const nowMs = useMemo(
+    () => currentTime.getHours() * 3600000 + currentTime.getMinutes() * 60000 + currentTime.getSeconds() * 1000,
+    [currentTime],
+  );
 
-  const formatIslamicDate = (): string => {
+  const nextPrayer = useMemo(
+    () => (state.prayerTimes ? getNextPrayer(state.prayerTimes.prayers, currentTime) : null),
+    [state.prayerTimes, currentTime],
+  );
+
+  /** The most recent prayer that has already passed today — the "current" prayer. */
+  const currentPrayer = useMemo(() => {
+    if (!state.prayerTimes?.prayers?.length) return null;
+    const passed = state.prayerTimes.prayers.filter((p) => p.time && timeToMs(p.time) <= nowMs);
+    return passed.length > 0 ? passed[passed.length - 1] : null;
+  }, [state.prayerTimes, nowMs]);
+
+  const formattedIslamicDate = useMemo(() => {
     if (state.prayerTimes) return `بتاريخ ${state.prayerTimes.dateHijri} — ${state.prayerTimes.dateGregorian}`;
 
     const weekday = ARABIC_WEEKDAYS[currentTime.getDay()];
@@ -155,12 +214,14 @@ export const PrayerTimesCard: React.FC = () => {
     const monthAr = ARABIC_MONTHS[currentTime.getMonth()];
     const year = currentTime.getFullYear();
     return `${weekday} ${day} ${monthAr} ${year}`;
-  };
+  }, [state.prayerTimes, currentTime]);
 
-  const formatCurrentClock = (): string => {
+  const formattedCurrentClock = useMemo(() => {
     const clock = convertTo12Hour(`${currentTime.getHours()}:${currentTime.getMinutes()}`);
     return `${clock.time}:${String(currentTime.getSeconds()).padStart(2, '0')} ${clock.suffix === 'PM' ? 'م' : 'ص'}`;
-  };
+  }, [currentTime]);
+
+  const locationStatusMessage = LOCATION_STATUS_MESSAGE[state.locationStatus];
 
   return (
     <div id="prayer-qibla-section" className="flex flex-col gap-6 w-full max-w-xl mx-auto">
@@ -172,7 +233,7 @@ export const PrayerTimesCard: React.FC = () => {
           </div>
           <div>
             <h3 className="text-lg font-bold text-text-primary">مواقيت الصلاة</h3>
-            <p className="text-sm text-text-secondary pt-1">{formatIslamicDate()}</p>
+            <p className="text-sm text-text-secondary pt-1">{formattedIslamicDate}</p>
           </div>
         </div>
         <button
@@ -192,26 +253,48 @@ export const PrayerTimesCard: React.FC = () => {
           <span id="prayer-location">{state.cityName || 'موقعك الحالي'}</span>
         </div>
         <div className="font-mono text-2xl font-bold text-text-primary tabular-nums" dir="ltr">
-          {formatCurrentClock()}
+          {formattedCurrentClock}
         </div>
       </div>
+
+      {/* Geolocation status (loading / permission-denied / error fallback) */}
+      {locationStatusMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`rounded-2xl border px-4 py-3 text-sm ${
+            state.locationStatus === 'loading'
+              ? 'border-border-custom bg-surface-muted text-text-secondary'
+              : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 shrink-0" />
+            {locationStatusMessage}
+          </span>
+        </div>
+      )}
 
       {/* Countdown banner */}
       {nextPrayer && state.prayerTimes && (
         <div
           id="prayer-countdown-banner"
+          role="region"
+          aria-labelledby="prayer-countdown-title"
           className="rounded-2xl bg-surface-muted border border-border-custom p-4 flex items-center justify-between gap-4"
         >
           <div>
-            <p className="text-sm text-text-secondary">
+            <p id="prayer-countdown-title" className="text-sm text-text-secondary">
               {nextPrayer.isNextDay ? 'غداً' : 'الصلاة القادمة'}
             </p>
-            <h4 className="text-xl font-bold text-text-primary mt-1">
-              أذان {nextPrayer.prayer.nameAr}
-            </h4>
+            <h4 className="text-xl font-bold text-text-primary mt-1">أذان {nextPrayer.prayer.nameAr}</h4>
           </div>
           <div
             id="countdown-timer"
+            role="timer"
+            aria-live="polite"
+            aria-atomic="true"
+            aria-label={`الوقت المتبقي لأذان ${nextPrayer.prayer.nameAr}`}
             className="font-mono text-3xl font-bold text-primary tabular-nums"
             dir="ltr"
           >
@@ -221,7 +304,12 @@ export const PrayerTimesCard: React.FC = () => {
       )}
 
       {/* Prayer times panel */}
-      <div id="prayer-times-panel" className="rounded-2xl bg-surface shadow-sm border border-border-custom overflow-hidden">
+      <div
+        id="prayer-times-panel"
+        role="region"
+        aria-label="أوقات الأذان"
+        className="rounded-2xl bg-surface shadow-sm border border-border-custom overflow-hidden"
+      >
         {/* Header row */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-border-custom">
           <span className="font-semibold text-text-primary">أوقات الأذان</span>
@@ -231,7 +319,7 @@ export const PrayerTimesCard: React.FC = () => {
         </div>
 
         {state.loading && (
-          <div id="prayer-items-list" className="divide-y divide-border-custom/60">
+          <div id="prayer-items-list" className="divide-y divide-border-custom/60" aria-busy="true">
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="flex items-center gap-4 px-4 py-4 animate-pulse">
                 <div className="w-3 h-3 rounded-full bg-surface-muted" />
@@ -246,7 +334,7 @@ export const PrayerTimesCard: React.FC = () => {
         )}
 
         {state.error && !state.loading && (
-          <div className="px-4 py-10 flex flex-col items-center gap-4 text-center">
+          <div className="px-4 py-10 flex flex-col items-center gap-4 text-center" role="alert">
             <p className="text-sm text-text-secondary">{state.error}</p>
             <button
               id="btn-retry-prayer-times"
@@ -264,22 +352,29 @@ export const PrayerTimesCard: React.FC = () => {
             {state.prayerTimes.prayers.map((prayer) => {
               const clock = convertTo12Hour(prayer.time);
               const isNext = nextPrayer?.prayer.id === prayer.id;
+              const isCurrent = currentPrayer?.id === prayer.id;
               const enabled = notifPrefs[prayer.id] ?? true;
               return (
                 <div
                   key={prayer.id}
                   id={`prayer-row-${prayer.id}`}
+                  aria-current={isNext ? 'true' : undefined}
                   className={`flex items-center gap-4 px-4 py-4 transition-colors ${
-                    isNext ? 'bg-primary border-primary text-white shadow-md scale-[1.01]' : 'hover:bg-surface-muted/60'
+                    isNext ? 'bg-primary text-white shadow-md' : 'hover:bg-surface-muted/60'
                   }`}
                 >
                   <div
                     className={`w-2.5 h-2.5 rounded-full ${
-                      isNext ? 'bg-white' : nowMs < timeToMsSafe(prayer.time) ? 'bg-primary' : 'bg-text-secondary/40'
+                      isNext ? 'bg-white' : nowMs < timeToMs(prayer.time) ? 'bg-primary' : 'bg-text-secondary/40'
                     }`}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className={`font-semibold ${isNext ? 'text-white' : 'text-text-primary'}`}>{prayer.nameAr}</p>
+                    <p className={`font-semibold ${isNext ? 'text-white' : 'text-text-primary'}`}>
+                      {prayer.nameAr}
+                      {(isNext || isCurrent) && (
+                        <span className="sr-only"> — {isNext ? 'الصلاة القادمة' : 'الصلاة الحالية'}</span>
+                      )}
+                    </p>
                     <p className={`text-xs ${isNext ? 'text-white/80' : 'text-text-secondary'} mt-0.5`} dir="ltr">
                       {prayer.nameEn}
                     </p>
@@ -293,7 +388,8 @@ export const PrayerTimesCard: React.FC = () => {
                   <button
                     id={`btn-toggle-notif-${prayer.id}`}
                     onClick={(e) => toggleNotification(prayer.id, e)}
-                    aria-label={`تفعيل تذكير ${prayer.nameAr}`}
+                    aria-label={`${enabled ? 'إيقاف' : 'تفعيل'} تذكير أذان ${prayer.nameAr}`}
+                    aria-pressed={enabled}
                     className={`p-2 rounded-lg transition-colors ${
                       isNext
                         ? 'hover:bg-white/20 text-white'
@@ -334,10 +430,11 @@ export const PrayerTimesCard: React.FC = () => {
               onClick={() => setDst((d) => !d)}
               role="switch"
               aria-checked={dst}
+              aria-label="التوقيت الصيفي"
               className={`w-10 h-5 rounded-full p-0.5 transition-colors ${dst ? 'bg-primary' : 'bg-text-secondary/30'}`}
             >
               <span
-                className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${dst ? 'translate-x-4.5' : 'translate-x-0.5'}`}
+                className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${dst ? 'translate-x-4' : 'translate-x-0.5'}`}
                 dir="ltr"
               />
             </button>
@@ -353,9 +450,4 @@ export const PrayerTimesCard: React.FC = () => {
       <AdhanSettingsCard />
     </div>
   );
-};
-
-const timeToMsSafe = (timeStr: string): number => {
-  const [h, m] = timeStr.split(':').map(Number);
-  return (h * 60 + m) * 60 * 1000;
 };

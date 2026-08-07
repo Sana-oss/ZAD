@@ -126,6 +126,7 @@ export interface UserSettings {
     lastResetDate: string; // YYYY-MM-DD
   };
   quranViewMode: 'surah' | 'juz' | 'page' | 'mushaf';
+  quranTheme?: 'white' | 'cream';
   adhkarStreak: {
     count: number;
     lastCompletedDate: string; // YYYY-MM-DD
