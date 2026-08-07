@@ -1,10 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
 @font-face {
-  font-family: 'KFGQPC Uthman Taha Naskh';
-  src: url('./assets/fonts/UthmanTN1.woff2') format('woff2'),
-       url('./assets/fonts/UthmanTN1.ttf') format('truetype');
+  font-family: "KFGQPC Uthman Taha Naskh";
+  src:
+    url("./assets/fonts/UthmanTN1.woff2") format("woff2"),
+    url("./assets/fonts/UthmanTN1.ttf") format("truetype");
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -18,9 +19,10 @@
  * the broken letter shapes and misplaced harakat.
  */
 @font-face {
-  font-family: 'KFGQPC Uthmanic Script HAFS';
-  src: url('./assets/fonts/UthmanicHafs1.woff2') format('woff2'),
-       url('./assets/fonts/UthmanicHafs1.otf') format('opentype');
+  font-family: "KFGQPC Uthmanic Script HAFS";
+  src:
+    url("./assets/fonts/UthmanicHafs1.woff2") format("woff2"),
+    url("./assets/fonts/UthmanicHafs1.otf") format("opentype");
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -36,23 +38,38 @@
   --color-border-custom: var(--border-custom);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
-  
+
   --font-sans: "Inter", "IBM Plex Sans Arabic", system-ui, sans-serif;
-  --font-arabic: var(--font-family-arabic, "IBM Plex Sans Arabic"), "Tajawal", sans-serif;
-  --font-quran: "KFGQPC Uthmanic Script HAFS", "KFGQPC Uthman Taha Naskh", serif;
+  --font-arabic:
+    var(--font-family-arabic, "IBM Plex Sans Arabic"), "Tajawal", sans-serif;
+  --font-quran:
+    "KFGQPC Uthmanic Script HAFS", "KFGQPC Uthman Taha Naskh", serif;
   --font-mono: "JetBrains Mono", monospace;
-  
+
   --animate-pulse-subtle: pulse-subtle 2s infinite ease-in-out;
 }
 
 @keyframes pulse-subtle {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.85; transform: scale(0.98); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(0.98);
+  }
 }
 
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in-up {
@@ -60,33 +77,33 @@
 }
 
 :root {
-  --background: #F9F8F4;
-  --surface: #FDFDFB;
-  --surface-muted: #F3F2EB;
-  --border-custom: #EAE7DE;
-  --text-primary: #1A1A1A;
-  --text-secondary: #7C7464;
-  
-  --primary: #3A5A40;
-  --primary-hover: #2D4632;
-  --secondary: #7C7464;
-  --accent-gold: #D4A017;
-  
+  --background: #f9f8f4;
+  --surface: #fdfdfb;
+  --surface-muted: #f3f2eb;
+  --border-custom: #eae7de;
+  --text-primary: #1a1a1a;
+  --text-secondary: #7c7464;
+
+  --primary: #3a5a40;
+  --primary-hover: #2d4632;
+  --secondary: #7c7464;
+  --accent-gold: #d4a017;
+
   --font-family-arabic: "IBM Plex Sans Arabic", sans-serif;
 }
 
 .dark {
-  --background: #181C1A;
-  --surface: #242A27;
-  --surface-muted: #2D3531;
-  --border-custom: #39443E;
-  --text-primary: #F4F6F5;
-  --text-secondary: #9AADA1;
-  
-  --primary: #5F8567;
-  --primary-hover: #4D6D53;
-  --secondary: #9AADA1;
-  --accent-gold: #E5B842;
+  --background: #181c1a;
+  --surface: #242a27;
+  --surface-muted: #2d3531;
+  --border-custom: #39443e;
+  --text-primary: #f4f6f5;
+  --text-secondary: #9aada1;
+
+  --primary: #5f8567;
+  --primary-hover: #4d6d53;
+  --secondary: #9aada1;
+  --accent-gold: #e5b842;
 }
 
 /* Custom layout rules and animations */
@@ -95,17 +112,28 @@ body {
   color: var(--text-primary);
   font-family: var(--font-sans);
   overflow-x: hidden;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 /* Arabic typography styling */
 .arabic-text {
-  font-family: var(--font-family-arabic, "IBM Plex Sans Arabic"), "Tajawal", sans-serif;
+  font-family:
+    var(--font-family-arabic, "IBM Plex Sans Arabic"), "Tajawal", sans-serif;
   line-height: 1.8;
   direction: rtl;
 }
 
-/* Quranic typography styling */
+/* 
+ * Quranic typography styling.
+ * 
+ * NOTE: Quran text color is controlled by the reading panel's own theme
+ * (cream/white), which always uses a light background. The app-level dark mode
+ * must NOT override the Quran text color, otherwise pale text becomes invisible
+ * on light panels. If a future dark reading panel is added, scope the override
+ * to that panel only.
+ */
 .quran-text {
   font-family: "KFGQPC Uthmanic Script HAFS", "KFGQPC Uthman Taha Naskh", serif;
   direction: rtl;
@@ -116,16 +144,15 @@ body {
   font-weight: normal !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-variant-ligatures: common-ligatures discretionary-ligatures historical-ligatures contextual;
-  font-feature-settings: "ccmp" 1, "locl" 1, "rlig" 1, "calt" 1;
+  font-variant-ligatures: common-ligatures discretionary-ligatures
+    historical-ligatures contextual;
+  font-feature-settings:
+    "ccmp" 1,
+    "locl" 1,
+    "rlig" 1,
+    "calt" 1;
   text-rendering: optimizeLegibility;
-}
-
-/* Eye-safe soft warm Quran text color on dark backgrounds to reduce fatigue */
-.dark .quran-text,
-.dark #mushaf-verses-continuous .text-text-primary,
-.dark #mushaf-verses-stacked .text-text-primary {
-  color: #F3F4F1 !important;
+  color: inherit;
 }
 
 /* Scrollbar customizations */

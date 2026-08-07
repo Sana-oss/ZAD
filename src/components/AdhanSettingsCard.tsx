@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Volume2, Volume1, Vibrate, BellOff, Music, Play, Square, BadgeCheck } from 'lucide-react';
 import { ADHAN_TYPES, ADHAN_SOUND_OPTIONS } from '../data/adhanSounds';
@@ -14,6 +14,17 @@ export const AdhanSettingsCard: React.FC = () => {
 
   const [playingSound, setPlayingSound] = useState<string | null>(null);
   const [volume, setVolume] = useState(adhanSettings.volume);
+
+  // Hold the 30s auto-stop timer so it can be cleared on unmount (prevents leaks).
+  const soundStopTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (soundStopTimerRef.current !== null) {
+        window.clearTimeout(soundStopTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleTypeChange = (typeId: string) => {
     updateSettings({
@@ -49,11 +60,18 @@ export const AdhanSettingsCard: React.FC = () => {
     if (playingSound === soundId) {
       adhanAudioService.stopSound();
       setPlayingSound(null);
+      if (soundStopTimerRef.current !== null) {
+        window.clearTimeout(soundStopTimerRef.current);
+        soundStopTimerRef.current = null;
+      }
     } else {
       setPlayingSound(soundId);
       adhanAudioService.setVolume(volume);
       await adhanAudioService.playSound(soundId, audioUrl);
-      setTimeout(() => setPlayingSound(null), 30000);
+      if (soundStopTimerRef.current !== null) {
+        window.clearTimeout(soundStopTimerRef.current);
+      }
+      soundStopTimerRef.current = window.setTimeout(() => setPlayingSound(null), 30000);
     }
   };
 

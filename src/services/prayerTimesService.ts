@@ -141,7 +141,7 @@ export class GeolocationService {
   getCurrentPosition(): Promise<LocationCoords> {
     return new Promise<LocationCoords>((resolve, reject) => {
       if (!('geolocation' in navigator)) {
-        reject(new Error('Geolocation not supported'));
+        reject(new LocationError(2, 'Geolocation not supported'));
         return;
       }
       navigator.geolocation.getCurrentPosition(
@@ -151,7 +151,10 @@ export class GeolocationService {
             longitude: pos.coords.longitude,
           });
         },
-        (err) => reject(err),
+        (err) => {
+          // Convert the browser's GeolocationPositionError into our typed LocationError.
+          reject(new LocationError(err.code, err.message));
+        },
         { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 },
       );
     });
@@ -170,6 +173,25 @@ export class GeolocationService {
     } catch {
       return '';
     }
+  }
+}
+
+/**
+ * Typed error for geolocation failures, distinguishing permission-denied
+ * from generic/unavailable errors via a stable `code` (mirrors the
+ * GeolocationPositionError codes).
+ */
+export class LocationError extends Error {
+  readonly code: number;
+
+  constructor(code: number, message?: string) {
+    super(message || `Geolocation error (code ${code})`);
+    this.name = 'LocationError';
+    this.code = code;
+  }
+
+  static isPermissionDenied(err: unknown): boolean {
+    return err instanceof LocationError && err.code === 1;
   }
 }
 
