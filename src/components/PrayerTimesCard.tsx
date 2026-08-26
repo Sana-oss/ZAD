@@ -69,67 +69,64 @@ export const PrayerTimesCard: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Request browser notification permission on mount.
+  // Resolve coordinates: saved location -> default location. No silent geolocation:
+  // the user explicitly grants location via the "use my location" button (required for mobile permission prompts).
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+    if (settings.prayerLocation?.latitude && settings.prayerLocation?.longitude) {
+      setState((prev) => ({
+        ...prev,
+        coords: {
+          latitude: settings.prayerLocation!.latitude,
+          longitude: settings.prayerLocation!.longitude,
+        } as LocationCoords,
+        cityName: settings.prayerLocation?.cityName || prev.cityName,
+        locationStatus: 'success',
+        loading: false,
+      }));
+      return;
     }
-  }, []);
 
-  // Resolve coordinates: saved location -> geolocation -> graceful fallback.
-  useEffect(() => {
-    let cancelled = false;
-
-    const resolveLocation = async () => {
-      // Preferred: a previously saved location.
-      if (settings.prayerLocation?.latitude && settings.prayerLocation?.longitude) {
-        if (!cancelled) {
-          setState((prev) => ({
-            ...prev,
-            coords: settings.prayerLocation as LocationCoords,
-            cityName: settings.prayerLocation?.cityName || prev.cityName,
-            locationStatus: 'success',
-            loading: false,
-          }));
-        }
-        return;
-      }
-
-      if (!cancelled) {
-        setState((prev) => ({ ...prev, locationStatus: 'loading' }));
-      }
-
-      try {
-        const geo = await service.getLocation();
-        if (cancelled) return;
-        const city = await service.reverseGeocode(geo.latitude, geo.longitude);
-        if (!cancelled) {
-          setState((prev) => ({
-            ...prev,
-            coords: { latitude: geo.latitude, longitude: geo.longitude },
-            cityName: city,
-            locationStatus: 'success',
-            loading: false,
-          }));
-        }
-      } catch (err) {
-        if (cancelled) return;
-
-        setState((prev) => ({
-          ...prev,
-          coords: DEFAULT_LOCATION,
-          cityName: DEFAULT_LOCATION.cityName || prev.cityName,
-          locationStatus: LocationError.isPermissionDenied(err) ? 'permission-denied' : 'error',
-          loading: false,
-        }));
-      }
-    };
-
-    resolveLocation();
-    return () => {
-      cancelled = true;
-    };
+    // No saved location -> start from the default city so times appear immediately.
+    setState((prev) => ({
+      ...prev,
+      coords: DEFAULT_LOCATION,
+      cityName: DEFAULT_LOCATION.cityName || prev.cityName,
+      locationStatus: 'idle',
+      loading: false,
+    }));
   }, [settings.prayerLocation]);
+
+  // Explicit, user-gesture geolocation request.
+  const useMyLocation = useCallback(async () => {
+    setState((prev) => ({ ...prev, locationStatus: 'loading' }));
+    try {
+      const geo = await service.getLocation();
+      const city = await service.reverseGeocode(geo.latitude, geo.longitude);
+      setState((prev) => ({
+        ...prev,
+        coords: { latitude: geo.latitude, longitude: geo.longitude },
+        cityName: city,
+        locationStatus: 'success',
+        loading: false,
+        reloadKey: prev.reloadKey + 1,
+      }));
+      updateSettings({
+        prayerLocation: {
+          latitude: geo.latitude,
+          longitude: geo.longitude,
+          cityName: city,
+        },
+      });
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        coords: DEFAULT_LOCATION,
+        cityName: DEFAULT_LOCATION.cityName || prev.cityName,
+        locationStatus: LocationError.isPermissionDenied(err) ? 'permission-denied' : 'error',
+        loading: false,
+      }));
+    }
+  }, [updateSettings]);
 
   // Fetch prayer times.
   useEffect(() => {
@@ -143,12 +140,6 @@ export const PrayerTimesCard: React.FC = () => {
         const result = await service.getPrayerTimes(coords.latitude, coords.longitude, method);
         if (cancelled) return;
         setState((prev) => ({ ...prev, prayerTimes: result, loading: false }));
-
-        // Persist location once it resolves (only if not already saved).
-        if (!settings.prayerLocation?.cityName) {
-          const loc = { latitude: coords.latitude, longitude: coords.longitude, cityName: state.cityName };
-          updateSettings({ prayerLocation: loc as Parameters<typeof updateSettings>[0]['prayerLocation'] });
-        }
       } catch {
         if (!cancelled) {
           setState((prev) => ({
@@ -273,6 +264,19 @@ export const PrayerTimesCard: React.FC = () => {
             {locationStatusMessage}
           </span>
         </div>
+      )}
+
+      {/* Manual location grant — mobile requires a user gesture for the permission prompt */}
+      {state.locationStatus !== 'success' && (
+        <button
+          id="btn-use-my-location"
+          onClick={useMyLocation}
+          disabled={state.locationStatus === 'loading'}
+          className="flex items-center justify-center gap-2 w-full rounded-xl bg-primary/15 border border-primary/30 px-4 py-3 text-sm font-semibold text-primary hover:bg-primary/25 transition-colors disabled:opacity-60"
+        >
+          <MapPin className="w-4 h-4" />
+          {state.locationStatus === 'loading' ? 'جارٍ تحديد الموقع...' : 'تحديد موقعي الحالي'}
+        </button>
       )}
 
       {/* Countdown banner */}

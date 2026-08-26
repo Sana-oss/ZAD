@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { ensureNotificationPermission } from '../services/notify';
 import { Sun, Moon, Bell, Sparkles } from 'lucide-react';
 
 export const SettingsSection: React.FC = () => {
@@ -125,7 +126,14 @@ export const SettingsSection: React.FC = () => {
             {/* Prayer times alerts */}
             <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-muted/10 border border-border-custom/30" id="notif-row-prayer">
               <button
-                onClick={() => updateSettings({ prayerNotifications: !settings.prayerNotifications })}
+                onClick={async () => {
+                  if (!settings.prayerNotifications) {
+                    const granted = await ensureNotificationPermission();
+                    updateSettings({ prayerNotifications: granted });
+                  } else {
+                    updateSettings({ prayerNotifications: false });
+                  }
+                }}
                 className={`w-11 h-6 flex items-center rounded-full p-0.5 transition-all duration-300 ${
                   settings.prayerNotifications ? 'bg-primary justify-end' : 'bg-text-secondary/20 justify-start'
                 }`}

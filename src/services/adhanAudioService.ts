@@ -1,4 +1,5 @@
 import { ADHAN_SOUND_OPTIONS } from '../data/adhanSounds';
+import { showAppNotification } from './notify';
 
 class AdhanAudioService {
   private static audioElement: HTMLAudioElement | null = null;
@@ -6,7 +7,13 @@ class AdhanAudioService {
 
   /** Resolve the audio file for a saved sound option id ('makkah', 'vibration', ...). */
   static resolveUrl(soundId: string): string | undefined {
-    return ADHAN_SOUND_OPTIONS.find((s) => s.id === soundId)?.audioUrl;
+    const url = ADHAN_SOUND_OPTIONS.find((s) => s.id === soundId)?.audioUrl;
+    if (!url) return undefined;
+    // Absolute / inline / object URLs are used as-is.
+    if (/^(https?:|data:|blob:)/.test(url)) return url;
+    // Relative paths must be prefixed with the app base path (e.g. /ZAD/ on GH Pages).
+    const base = import.meta.env.BASE_URL || '/';
+    return base + url.replace(/^\//, '');
   }
 
   static supportsVibration(): boolean {
@@ -50,11 +57,11 @@ class AdhanAudioService {
       try {
         await audio.play();
       } catch {
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('حان وقت الصلاة', {
-            body: 'تعذر تشغيل صوت الأذان. الرجاء التحقق من مستوى الصوت.',
-          });
-        }
+        void showAppNotification('حان وقت الصلاة', {
+          body: 'تعذر تشغيل صوت الأذان. الرجاء التحقق من مستوى الصوت.',
+          icon: `${import.meta.env.BASE_URL}icon-192.png`,
+          dir: 'rtl',
+        });
       }
     } catch (error) {
       console.error('Audio error:', error);

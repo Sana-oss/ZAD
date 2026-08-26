@@ -9,6 +9,13 @@ import {
 } from '../services/qiblaService';
 import type { LocationCoords } from '../services/prayerTimesService';
 
+/** Use the absolute-orientation event when available: it provides a calibrated, true-north heading
+ *  (via webkitCompassHeading on iOS) instead of the uncalibrated relative alpha. */
+const ORIENTATION_EVENT: string =
+  typeof window !== 'undefined' && 'ondeviceorientationabsolute' in window
+    ? 'deviceorientationabsolute'
+    : 'deviceorientation';
+
 interface Props {
   location: LocationCoords;
 }
@@ -70,9 +77,9 @@ export const QiblaCompass: React.FC<Props> = ({ location }) => {
       }
     };
 
-    window.addEventListener('deviceorientation', onOrientation, true);
+    window.addEventListener(ORIENTATION_EVENT, onOrientation, true);
     return () => {
-      window.removeEventListener('deviceorientation', onOrientation, true);
+      window.removeEventListener(ORIENTATION_EVENT, onOrientation, true);
       if (animRef.current) cancelAnimationFrame(animRef.current);
       animRef.current = null;
     };

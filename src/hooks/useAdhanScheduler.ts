@@ -8,6 +8,7 @@ import {
   timeToMs,
 } from '../services/prayerTimesService';
 import { adhanAudioService } from '../services/adhanAudioService';
+import { showAppNotification } from '../services/notify';
 import type { PrayerTime } from '../types';
 
 const service = new PrayerTimesService();
@@ -111,13 +112,15 @@ export const useAdhanScheduler = (): void => {
         void adhanAudioService.playSound(adhanSettings.soundOption);
 
         if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification(`حان الآن وقت ${prayer.nameAr}`, {
+          void showAppNotification(`حان الآن وقت ${prayer.nameAr}`, {
             body:
               adhanSettings.soundOption === 'vibration'
                 ? 'التنبيه بالاهتزاز'
                 : adhanSettings.soundOption === 'silent' || adhanSettings.soundOption === 'none'
                   ? 'تنبيه صامت — حان وقت الصلاة'
                   : `أذان ${prayer.nameAr}`,
+            icon: `${import.meta.env.BASE_URL}icon-192.png`,
+            dir: 'rtl',
           });
         }
       }
