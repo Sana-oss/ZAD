@@ -69,7 +69,7 @@ export const AdhkarListPage: React.FC = () => {
 
   // Local state
   const [selectedTab, setSelectedTab] = useState<DhikrCategory>(
-    (activeCategory as DhikrCategory) || 'morning'
+    activeCategory || 'morning'
   );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);

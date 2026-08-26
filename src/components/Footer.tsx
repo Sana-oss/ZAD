@@ -20,7 +20,7 @@ export const Footer: React.FC = () => {
         <div className="flex items-center gap-6 order-2 sm:order-1" id="footer-links">
           <a
             href="#contact"
-            onClick={(e) => { e.preventDefault(); alert(isAr ? 'بريد الدعم والمقترحات: support@zadapp.net' : 'Support email: support@zadapp.net'); }}
+            onClick={(e) => { e.preventDefault(); alert(isAr ? 'بريد الدعم والمقترحات: ssanaf02@gmail.com' : 'Support email: ssanaf02@gmail.com'); }}
             className="text-xs font-semibold text-text-secondary hover:text-primary transition-colors arabic-text"
             id="link-contact"
           >
@@ -51,7 +51,7 @@ export const Footer: React.FC = () => {
             <span className="arabic-text text-sm font-bold text-text-primary select-none">زاد</span>
           </div>
           <p className="arabic-text text-[10px] text-text-secondary font-medium" id="footer-copyright">
-            {isAr ? '© ٢٠٢٤ زاد. جميع الحقوق محفوظة.' : '© 2024 ZAD. All rights reserved.'}
+            {isAr ? '© 2026 زاد. جميع الحقوق محفوظة.' : '© 2026 ZAD. All rights reserved.'}
           </p>
         </div>
 

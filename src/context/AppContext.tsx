@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserSettings, Dhikr } from '../types';
+import { UserSettings, Dhikr, DhikrCategory } from '../types';
 
 interface AppContextType {
   activeTab: 'home' | 'adhkar' | 'quran' | 'prayer' | 'settings' | 'hadith';
   setActiveTab: (tab: 'home' | 'adhkar' | 'quran' | 'prayer' | 'settings' | 'hadith') => void;
-  activeCategory: 'morning' | 'evening' | 'sleep' | 'prayer_after' | null;
-  setActiveCategory: (cat: 'morning' | 'evening' | 'sleep' | 'prayer_after' | null) => void;
+  activeCategory: DhikrCategory | null;
+  setActiveCategory: (cat: DhikrCategory | null) => void;
   settings: UserSettings;
   updateSettings: (newSettings: Partial<UserSettings>) => void;
   toggleFavorite: (id: string) => void;
@@ -74,7 +74,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeTab, setActiveTab] = useState<'home' | 'adhkar' | 'quran' | 'prayer' | 'settings' | 'hadith'>('home');
-  const [activeCategory, setActiveCategory] = useState<'morning' | 'evening' | 'sleep' | 'prayer_after' | null>(null);
+  const [activeCategory, setActiveCategory] = useState<DhikrCategory | null>(null);
   const [quranSearchQuery, setQuranSearchQuery] = useState('');
   const [quranContinueTarget, setQuranContinueTarget] = useState<{ surahNumber: number; verseNumber: number } | null>(null);
   const [adhkarSearchQuery, setAdhkarSearchQuery] = useState('');

@@ -33,6 +33,7 @@ export interface QuranChapter {
   revelationOrder: number;
   bismillahPre: boolean;
   translatedName: string;
+  pages?: number[];
 }
 
 export interface QuranVerse {
@@ -146,6 +147,7 @@ export class QuranComProvider implements IQuranProvider {
         revelationOrder: ch.revelation_order,
         bismillahPre: ch.bismillah_pre,
         translatedName: ch.translated_name?.name || ch.name_simple,
+        pages: ch.pages,
       }));
 
       QuranCache.set(cacheKey, chapters);

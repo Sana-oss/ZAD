@@ -2,7 +2,9 @@
   "name": "زاد - الأذكار والقرآن والحديث",
   "short_name": "زاد",
   "description": "تطبيقك الإسلامي الشامل للأذكار اليومية والقرآن الكريم والحديث الشريف ومواقيت الصلاة وتحديد القبلة.",
-  "start_url": "/",
+  "id": "/ZAD/",
+  "start_url": "/ZAD/",
+  "scope": "/ZAD/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F9F8F4",
@@ -12,16 +14,28 @@
   "categories": ["education", "lifestyle", "religion"],
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "/ZAD/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/ZAD/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/ZAD/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/ZAD/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "screenshots": [],
@@ -29,19 +43,19 @@
     {
       "name": "الأذكار",
       "short_name": "أذكار",
-      "url": "/?tab=adhkar",
+      "url": "/ZAD/?tab=adhkar",
       "description": "أذكار الصباح والمساء"
     },
     {
       "name": "القرآن الكريم",
       "short_name": "قرآن",
-      "url": "/?tab=quran",
+      "url": "/ZAD/?tab=quran",
       "description": "تلاوة القرآن الكريم"
     },
     {
       "name": "مواقيت الصلاة",
       "short_name": "الصلاة",
-      "url": "/?tab=prayer",
+      "url": "/ZAD/?tab=prayer",
       "description": "أوقات الصلاة واتجاه القبلة"
     }
   ]

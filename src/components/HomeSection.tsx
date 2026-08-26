@@ -18,7 +18,7 @@ export const HomeSection: React.FC = () => {
 
   const getHijriDate = () => {
     try {
-      return new Intl.DateTimeFormat(isAr ? 'ar-SA-u-ca-islamic' : 'en-US-u-ca-islamic', {
+      return new Intl.DateTimeFormat(isAr ? 'ar-SA-u-ca-islamic-umalqura' : 'en-US-u-ca-islamic-umalqura', {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
