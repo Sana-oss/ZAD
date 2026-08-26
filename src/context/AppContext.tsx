@@ -12,11 +12,10 @@ interface AppContextType {
   isFavorite: (id: string) => boolean;
   toggleFavoriteHadith: (id: string) => void;
   isFavoriteHadith: (id: string) => boolean;
-  incrementMasbaha: () => void;
-  resetMasbaha: () => void;
-  changeMasbahaPhrase: (phrase: string) => void;
   quranSearchQuery: string;
   setQuranSearchQuery: (query: string) => void;
+  quranContinueTarget: { surahNumber: number; verseNumber: number } | null;
+  setQuranContinueTarget: (target: { surahNumber: number; verseNumber: number } | null) => void;
   adhkarSearchQuery: string;
   setAdhkarSearchQuery: (query: string) => void;
   dhikrCounts: Record<string, number>;
@@ -58,12 +57,6 @@ const DEFAULT_SETTINGS: UserSettings = {
   favorites: [],
   favoriteHadiths: [],
   quranProgress: null,
-  masbahaCount: 0,
-  masbahaPhrase: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ',
-  misbahaStats: {
-    todayCount: 0,
-    lastResetDate: '',
-  },
   quranViewMode: 'surah',
   adhkarStreak: {
     count: 0,
@@ -83,6 +76,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTab, setActiveTab] = useState<'home' | 'adhkar' | 'quran' | 'prayer' | 'settings' | 'hadith'>('home');
   const [activeCategory, setActiveCategory] = useState<'morning' | 'evening' | 'sleep' | 'prayer_after' | null>(null);
   const [quranSearchQuery, setQuranSearchQuery] = useState('');
+  const [quranContinueTarget, setQuranContinueTarget] = useState<{ surahNumber: number; verseNumber: number } | null>(null);
   const [adhkarSearchQuery, setAdhkarSearchQuery] = useState('');
   const [dhikrCounts, setDhikrCounts] = useState<Record<string, number>>({});
   const [playingAudio, setPlayingAudio] = useState<{ id: string; text: string; title: string; category: string; audioUrl?: string; isQuran?: boolean } | null>(null);
@@ -152,29 +146,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const isFavoriteHadith = (id: string) => settings.favoriteHadiths.includes(id);
 
-  const incrementMasbaha = () => {
-    const today = new Date().toISOString().split('T')[0];
-    const currentDaily = settings.misbahaStats.lastResetDate === today ? settings.misbahaStats.todayCount : 0;
-    updateSettings({
-      masbahaCount: settings.masbahaCount + 1,
-      misbahaStats: {
-        todayCount: currentDaily + 1,
-        lastResetDate: today,
-      },
-    });
-  };
-
-  const resetMasbaha = () => {
-    updateSettings({
-      masbahaCount: 0,
-      misbahaStats: { todayCount: 0, lastResetDate: new Date().toISOString().split('T')[0] },
-    });
-  };
-
-  const changeMasbahaPhrase = (phrase: string) => {
-    updateSettings({ masbahaPhrase: phrase });
-  };
-
   const incrementDhikrCount = (id: string, max: number) => {
     setDhikrCounts((prev) => {
       const current = prev[id] || 0;
@@ -205,15 +176,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  // Daily reset: clear adhkarCompletedToday and misbahaStats when a new day starts
+  // Daily reset: clear adhkarCompletedToday when a new day starts
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     const lastDate = settings.adhkarStreak.lastCompletedDate;
     if (lastDate !== today) {
       updateSettings({ adhkarCompletedToday: {} });
-    }
-    if (settings.misbahaStats.lastResetDate !== today) {
-      updateSettings({ misbahaStats: { todayCount: 0, lastResetDate: today } });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -267,11 +235,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isFavorite,
         toggleFavoriteHadith,
         isFavoriteHadith,
-        incrementMasbaha,
-        resetMasbaha,
-        changeMasbahaPhrase,
         quranSearchQuery,
         setQuranSearchQuery,
+        quranContinueTarget,
+        setQuranContinueTarget,
         adhkarSearchQuery,
         setAdhkarSearchQuery,
         dhikrCounts,

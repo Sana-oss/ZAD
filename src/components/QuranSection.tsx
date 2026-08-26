@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
   Search, 
@@ -14,12 +14,10 @@ import {
   ArrowUp,
   List,
   ChevronLeft,
-  Layers,
   Play
 } from 'lucide-react';
-import { quranService, QuranChapter, QuranVerse, TafsirData, QuranSearchResult, JuzItem } from '../services/quranService';
+import { quranService, QuranChapter, QuranVerse, TafsirData, JuzItem } from '../services/quranService';
 import { JUZ_INFO, TOTAL_PAGES } from '../data/juzMapping';
-import MPage from './MushafPageView';
 
 const VerseMarker: React.FC<{ number: number }> = ({ number }) => {
   return (
@@ -53,7 +51,9 @@ export const QuranSection: React.FC = () => {
     audioQueue,
     setAudioQueue,
     audioQueueIndex,
-    setAudioQueueIndex
+    setAudioQueueIndex,
+    quranContinueTarget,
+    setQuranContinueTarget
   } = useApp();
 
   const [chapters, setChapters] = useState<QuranChapter[]>([]);
@@ -65,8 +65,11 @@ export const QuranSection: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Juz/Page view mode state
-  const [viewMode, setViewMode] = useState<'surah' | 'juz' | 'page' | 'mushaf'>(
-    (settings.quranViewMode as 'surah' | 'juz' | 'page' | 'mushaf') || 'surah'
+  const savedViewMode = settings.quranViewMode;
+  const [viewMode, setViewMode] = useState<'surah' | 'juz' | 'page'>(
+    savedViewMode === 'surah' || savedViewMode === 'juz' || savedViewMode === 'page'
+      ? savedViewMode
+      : 'surah'
   );
   const [selectedJuzNum, setSelectedJuzNum] = useState<number>(1);
   const [selectedPageNum, setSelectedPageNum] = useState<number>(1);
@@ -90,6 +93,8 @@ export const QuranSection: React.FC = () => {
   const [showSidebar, setShowSidebar] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const lastTrackedVerseRef = useRef<number>(-1);
+  const lastTrackSaveTimeRef = useRef<number>(0);
 
   // Quran text color: adapts to the reading panel's actual background.
   // - Cream theme: always light background (#FAF6EC) → dark text
@@ -122,6 +127,36 @@ export const QuranSection: React.FC = () => {
         const scrolled = (winScroll / height) * 100;
         setScrollProgress(scrolled);
       }
+
+      // Track the topmost visible verse and save the actual reading position (throttled, no toast)
+      if (viewMode === 'surah' && verses.length > 0) {
+        const now = Date.now();
+        if (now - lastTrackSaveTimeRef.current > 700) {
+          const rowEls = document.querySelectorAll('[id^="verse-row-"]');
+          let topVerse = -1;
+          for (const el of Array.from(rowEls)) {
+            const rect = (el as HTMLElement).getBoundingClientRect();
+            if (rect.top <= 120) {
+              const num = parseInt((el as HTMLElement).id.replace('verse-row-', ''), 10);
+              if (!isNaN(num)) topVerse = num;
+            } else {
+              break;
+            }
+          }
+          if (topVerse > 0 && topVerse !== lastTrackedVerseRef.current) {
+            lastTrackedVerseRef.current = topVerse;
+            lastTrackSaveTimeRef.current = now;
+            const surahForCount = chapters.find((c) => c.id === selectedSurahNum);
+            updateSettings({
+              quranProgress: {
+                surahNumber: selectedSurahNum,
+                verseNumber: topVerse,
+                progressPercentage: Math.round((topVerse / (surahForCount?.versesCount || 1)) * 100),
+              }
+            });
+          }
+        }
+      }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -129,17 +164,12 @@ export const QuranSection: React.FC = () => {
     handleScroll();
     
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [verses, quranTheme, fontSizePercent, showTranslation, readingMode]);
+  }, [verses, quranTheme, fontSizePercent, showTranslation, readingMode, viewMode, selectedSurahNum]);
 
   // Active Tafsir State
   const [activeTafsirVerse, setActiveTafsirVerse] = useState<QuranVerse | null>(null);
   const [tafsirData, setTafsirData] = useState<TafsirData | null>(null);
   const [loadingTafsir, setLoadingTafsir] = useState(false);
-
-  // Search mode: 'index' for surah name search, 'global' for live phrase search in Quran
-  const [searchMode, setSearchMode] = useState<'index' | 'global'>('index');
-  const [globalResults, setGlobalResults] = useState<QuranSearchResult[]>([]);
-  const [loadingSearch, setLoadingSearch] = useState(false);
 
   const isAr = settings.language === 'ar';
 
@@ -189,13 +219,6 @@ export const QuranSection: React.FC = () => {
 
   // 2. Fetch Verses based on current view mode
   useEffect(() => {
-    if (viewMode === 'mushaf') {
-      setVerses([]);
-      setActiveTafsirVerse(null);
-      setTafsirData(null);
-      setLoadingVerses(false);
-      return;
-    }
     const fetchVerses = async () => {
       setLoadingVerses(true);
       setActiveTafsirVerse(null);
@@ -210,7 +233,7 @@ export const QuranSection: React.FC = () => {
           data = await quranService.getVerses(selectedSurahNum);
         }
         setVerses(data);
-        if (viewMode === 'surah' && data.length > 0) {
+        if (viewMode === 'surah' && data.length > 0 && !quranContinueTarget) {
           updateSettings({
             quranProgress: {
               surahNumber: selectedSurahNum,
@@ -228,21 +251,31 @@ export const QuranSection: React.FC = () => {
     fetchVerses();
   }, [viewMode, selectedSurahNum, selectedJuzNum, selectedPageNum]);
 
-  // 3. Trigger global text search
-  const handleGlobalSearch = async () => {
-    if (!quranSearchQuery.trim()) return;
-    setLoadingSearch(true);
-    try {
-      const results = await quranService.searchQuran(quranSearchQuery);
-      setGlobalResults(results);
-    } catch (err) {
-      console.error('Global search failed', err);
-    } finally {
-      setLoadingSearch(false);
+  // 2b. Apply "Continue Reading" target: switch to surah view and select the saved surah
+  useEffect(() => {
+    if (quranContinueTarget) {
+      setViewMode('surah');
+      setSelectedSurahNum(quranContinueTarget.surahNumber);
     }
-  };
+  }, [quranContinueTarget]);
 
-  // 4. Save Reading Progress to User Settings
+  // 2c. When verses are loaded and a continue target is set, scroll to the saved verse
+  useEffect(() => {
+    if (
+      quranContinueTarget &&
+      viewMode === 'surah' &&
+      verses.length > 0 &&
+      selectedSurahNum === quranContinueTarget.surahNumber
+    ) {
+      const el = document.getElementById(`verse-row-${quranContinueTarget.verseNumber}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      setQuranContinueTarget(null);
+    }
+  }, [quranContinueTarget, verses, viewMode, selectedSurahNum]);
+
+  // 3. Save Reading Progress to User Settings
   const handleSaveProgress = (verseNumber = 1) => {
     setIsSavedProgress(true);
     updateSettings({
@@ -327,7 +360,7 @@ export const QuranSection: React.FC = () => {
   const selectedJuzInfo = JUZ_INFO[selectedJuzNum - 1] || null;
 
   const filteredChapters = chapters.filter((c) => {
-    if (searchMode === 'global' || !quranSearchQuery) return true;
+    if (!quranSearchQuery) return true;
     const q = quranSearchQuery.toLowerCase();
     return c.nameArabic.includes(q) || c.nameSimple.toLowerCase().includes(q) || String(c.id) === q;
   });
@@ -367,10 +400,13 @@ export const QuranSection: React.FC = () => {
         <div className={`flex flex-col gap-5 order-2 lg:order-1 w-full transition-all duration-300 ${showSidebar ? 'lg:col-span-8' : 'lg:col-span-12'}`} id="quran-reading-pane">
           
           {/* Header toolbar */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 rounded-3xl border border-border-custom bg-surface shadow-sm" id="reading-toolbar">
+          <div className="flex flex-col gap-3 p-4 rounded-3xl border border-border-custom bg-surface shadow-sm" id="reading-toolbar">
             
-            {/* Action Buttons Block */}
-            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto" id="toolbar-actions-block">
+            {/* Row 1: Primary Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-2 w-full" id="toolbar-actions-row">
+              
+              {/* Action Buttons Block */}
+              <div className="flex flex-wrap items-center gap-2" id="toolbar-actions-block">
               {/* Sidebar Index/Search Toggle */}
               <button
                 onClick={() => setShowSidebar(!showSidebar)}
@@ -412,7 +448,27 @@ export const QuranSection: React.FC = () => {
                   <span className="arabic-text">{isAr ? 'الترجمة' : 'Translation'}</span>
                 </button>
               )}
+              </div>
+
+              {/* Play All Verses (Row 1 right side) */}
+              <button
+                onClick={handlePlayAll}
+                disabled={!verses.length}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  !verses.length
+                    ? 'opacity-40 cursor-not-allowed'
+                    : 'bg-primary text-white hover:bg-primary-hover shadow-sm active-press'
+                }`}
+                title={isAr ? 'تشغيل الكل' : 'Play All Verses'}
+              >
+                <Play className="h-3.5 w-3.5" />
+                <span>{isAr ? 'تشغيل الكل' : 'Play All'}</span>
+              </button>
+
             </div>
+
+            {/* Row 2: Display & Navigation Preferences */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-1 sm:border-t sm:border-border-custom/40 w-full" id="toolbar-display-row">
 
             {/* View Mode Toggle: Surah / Juz / Page */}
             <div className="flex rounded-full border border-border-custom p-0.5 bg-surface-muted" id="view-mode-toggle">
@@ -451,18 +507,6 @@ export const QuranSection: React.FC = () => {
               >
                 <BookOpen className="h-3.5 w-3.5" />
                 <span>{isAr ? 'صفحة' : 'Page'}</span>
-              </button>
-              <button
-                onClick={() => setViewMode('mushaf')}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold arabic-text transition-all cursor-pointer ${
-                  viewMode === 'mushaf' 
-                    ? 'bg-surface text-text-primary shadow-sm' 
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-                title={isAr ? 'عرض المصحف' : 'View Mushaf'}
-              >
-                <Layers className="h-3.5 w-3.5" />
-                <span>{isAr ? 'مصحف' : 'Mushaf'}</span>
               </button>
             </div>
 
@@ -547,27 +591,11 @@ export const QuranSection: React.FC = () => {
               </button>
             </div>
 
-            {/* Play All Verses */}
-            <button
-              onClick={handlePlayAll}
-              disabled={!verses.length}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                !verses.length
-                  ? 'opacity-40 cursor-not-allowed'
-                  : 'bg-primary text-white hover:bg-primary-hover shadow-sm active-press'
-              }`}
-              title={isAr ? 'تشغيل الكل' : 'Play All Verses'}
-            >
-              <Play className="h-3.5 w-3.5" />
-              <span>{isAr ? 'تشغيل الكل' : 'Play All'}</span>
-            </button>
+            </div>
 
           </div>
 
           {/* Reading panel */}
-          {viewMode === 'mushaf' ? (
-            <MPage pageNumber={selectedPageNum} onPageChange={setSelectedPageNum} />
-          ) : (
           <div 
             className={`rounded-3xl border transition-all duration-300 p-6 sm:p-10 shadow-sm flex flex-col items-center relative overflow-visible min-h-[550px] ${
               quranTheme === 'cream' 
@@ -1017,7 +1045,7 @@ export const QuranSection: React.FC = () => {
               </button>
             </div>
 
-          </div>)}
+          </div>
 
         </div>
 
@@ -1039,7 +1067,7 @@ export const QuranSection: React.FC = () => {
           id="quran-sidebar"
         >
           
-          {/* Index Header & Mode Switcher */}
+          {/* Index Header */}
           <div className="flex flex-col gap-3 pb-2 border-b border-border-custom" id="sidebar-header">
             <div className="flex items-center justify-between gap-2" id="sidebar-header-title-row">
               <button 
@@ -1052,84 +1080,26 @@ export const QuranSection: React.FC = () => {
               </button>
               <h3 className="arabic-text text-md font-extrabold text-text-primary">مصحف زاد المعرفة</h3>
             </div>
-            
-            {/* Search mode toggler */}
-            <div className="flex rounded-full border border-border-custom p-0.5 bg-surface-muted w-full" id="search-mode-toggle">
-              <button
-                onClick={() => {
-                  setSearchMode('index');
-                  setQuranSearchQuery('');
-                }}
-                className={`flex-1 rounded-full py-1.5 text-xs font-bold arabic-text transition-all cursor-pointer ${
-                  searchMode === 'index' 
-                    ? 'bg-primary text-white shadow-sm' 
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-                id="btn-mode-index"
-              >
-                فهرس السور
-              </button>
-              <button
-                onClick={() => {
-                  setSearchMode('global');
-                  setQuranSearchQuery('');
-                }}
-                className={`flex-1 rounded-full py-1.5 text-xs font-bold arabic-text transition-all cursor-pointer ${
-                  searchMode === 'global' 
-                    ? 'bg-primary text-white shadow-sm' 
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-                id="btn-mode-global"
-              >
-                البحث المتقدم
-              </button>
-            </div>
-          </div>
 
-          {/* Search Inputs based on mode */}
-          {searchMode === 'index' ? (
-            /* Standard Surah index search */
+            {/* Standard Surah index search */}
             <div className="relative w-full" id="search-surah-wrapper">
               <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
               <input
                 type="text"
-                placeholder="ابحث عن سورة بالاسم..."
+                placeholder="ابحث عن سورة بالاسم أو رقمها..."
                 value={quranSearchQuery}
                 onChange={(e) => setQuranSearchQuery(e.target.value)}
                 className="arabic-text text-xs w-full rounded-full border border-border-custom bg-surface py-2.5 pr-10 pl-4 focus:outline-none focus:border-primary transition-colors text-right font-medium"
                 id="search-surah-input"
               />
             </div>
-          ) : (
-            /* Global Live Text Search */
-            <div className="flex flex-col gap-2" id="global-search-block">
-              <div className="relative w-full">
-                <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
-                <input
-                  type="text"
-                  placeholder="ابحث عن كلمة أو عبارة قرآنية..."
-                  value={quranSearchQuery}
-                  onChange={(e) => setQuranSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleGlobalSearch()}
-                  className="arabic-text text-xs w-full rounded-full border border-border-custom bg-surface py-2.5 pr-10 pl-4 focus:outline-none focus:border-primary transition-colors text-right font-medium"
-                  id="search-global-input"
-                />
-              </div>
-              <button
-                onClick={handleGlobalSearch}
-                className="w-full bg-primary text-white rounded-full text-xs font-bold py-2 shadow-sm hover:bg-primary-hover transition-colors cursor-pointer"
-                id="btn-trigger-global-search"
-              >
-                {loadingSearch ? 'جاري البحث...' : 'ابحث في المصحف'}
-              </button>
-            </div>
-          )}
+          </div>
 
           {/* Sidebar scrollable container */}
           <div className="flex flex-col gap-2 overflow-y-auto max-h-[500px] pr-1" id="sidebar-scrollable-content">
             
             {/* 1. Surah index display (only in surah mode) */}
-            {searchMode === 'index' && viewMode === 'surah' && (
+            {viewMode === 'surah' && (
               <>
                 {loadingChapters ? (
                   <div className="flex flex-col items-center justify-center py-10" id="chapters-loader">
@@ -1189,7 +1159,7 @@ export const QuranSection: React.FC = () => {
             )}
 
             {/* 2. Juz list display (only in juz mode) */}
-            {searchMode === 'index' && viewMode === 'juz' && (
+            {viewMode === 'juz' && (
               <>
                 {loadingJuzs ? (
                   <div className="flex flex-col items-center justify-center py-10">
@@ -1223,7 +1193,7 @@ export const QuranSection: React.FC = () => {
             )}
 
             {/* 3. Page navigator display (only in page mode) */}
-            {searchMode === 'index' && viewMode === 'page' && (
+            {viewMode === 'page' && (
               <div className="flex flex-col gap-4" id="page-navigator-block">
                 <div className="flex items-center gap-2">
                   <input
@@ -1275,70 +1245,6 @@ export const QuranSection: React.FC = () => {
                     <ChevronLeft className="h-3.5 w-3.5" />
                   </button>
                 </div>
-              </div>
-            )}
-
-            {/* 4. Global live search results display (works in all modes) */}
-            {searchMode === 'global' && (
-              <div className="flex flex-col gap-3" id="global-search-results-pane">
-                {loadingSearch ? (
-                  <div className="flex flex-col items-center justify-center py-10" id="search-results-loader">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary" />
-                    <p className="arabic-text text-xs font-bold text-text-secondary mt-3">جاري البحث في المصحف الشريف...</p>
-                  </div>
-                ) : (
-                  <>
-                    <p className="arabic-text text-[10px] font-bold text-text-secondary text-right px-1">
-                      تم العثور على {globalResults.length} نتائج مطابقة للبحث
-                    </p>
-
-                    {globalResults.map((res, idx) => {
-                      const [surahId, verseId] = res.verseKey.split(':');
-                      return (
-                        <div
-                          key={idx}
-                          className="w-full p-4 rounded-2xl bg-surface border border-border-custom hover:border-primary/30 transition-all text-right flex flex-col gap-2 shadow-sm"
-                          id={`search-res-item-${idx}`}
-                        >
-                          <div className="flex items-center justify-between border-b border-border-custom/50 pb-1.5">
-                            <button
-                              onClick={() => {
-                                setSelectedSurahNum(parseInt(surahId));
-                                // Auto scroll to verse on small timeout
-                                setTimeout(() => {
-                                  const el = document.getElementById(`verse-row-${verseId}`);
-                                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                }, 500);
-                              }}
-                              className="text-[10px] font-extrabold text-primary hover:underline flex items-center gap-1 cursor-pointer"
-                            >
-                              عرض في المصحف <ChevronRight className="h-3 w-3" />
-                            </button>
-                            <span className="arabic-text text-[10px] font-bold bg-primary/5 text-primary px-2.5 py-0.5 rounded-full">
-                              سورة {surahId} | الآية {verseId}
-                            </span>
-                          </div>
-
-                          <p className="quran-text text-lg text-right leading-relaxed" dir="rtl" lang="ar" style={{ color: quranTextColor }}>
-                            {res.textUthmani}
-                          </p>
-
-                          {res.translationText && (
-                            <p className="text-[10px] text-text-secondary text-left font-sans italic pt-1 border-t border-border-custom/30 leading-normal">
-                              {res.translationText}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {globalResults.length === 0 && !loadingSearch && quranSearchQuery && (
-                      <p className="arabic-text text-xs font-semibold text-text-secondary text-center py-6">
-                        لا توجد نتائج مطابقة لعبارة البحث الخاصة بك.
-                      </p>
-                    )}
-                  </>
-                )}
               </div>
             )}
 

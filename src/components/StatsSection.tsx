@@ -6,8 +6,6 @@ export const StatsSection: React.FC = () => {
 
   const isAr = settings.language === 'ar';
 
-  const today = new Date().toISOString().split('T')[0];
-  const tasbeehToday = settings.misbahaStats.lastResetDate === today ? settings.misbahaStats.todayCount : 0;
   const adhkarCompletedCount = Object.values(settings.adhkarCompletedToday).filter(Boolean).length;
 
   const stats = [
@@ -22,11 +20,6 @@ export const StatsSection: React.FC = () => {
       labelEn: "Today's Completed Adhkar",
     },
     {
-      value: String(tasbeehToday),
-      labelAr: 'تسبيحة اليوم',
-      labelEn: "Today's Tasbeehs",
-    },
-    {
       value: String(settings.adhkarStreak.count),
       labelAr: 'يوم متتالي',
       labelEn: 'Day Streak',
@@ -34,7 +27,7 @@ export const StatsSection: React.FC = () => {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full" id="stats-grid">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full" id="stats-grid">
       {stats.map((stat, idx) => (
         <div
           key={idx}

@@ -5,7 +5,7 @@ import { HadithOfTheDay } from './HadithOfTheDay';
 import { QuranProgressCard } from './QuranProgressCard';
 import { StatsSection } from './StatsSection';
 import { PrayerTimesCard } from './PrayerTimesCard';
-import { MasbahaCard } from './MasbahaCard';
+import { PremiumQuotesSection } from './PremiumQuotesSection';
 import { CATEGORIES } from '../data/adhkar';
 import { getDailyTip } from '../data/dailyTips';
 import { Sun, Moon, Bed, Compass, Heart, Home, DoorOpen, UtensilsCrossed, Smile, Droplets, HeartPulse, Shield, Search, Plane, Sparkles, Flame, Lightbulb, CalendarDays } from 'lucide-react';
@@ -67,10 +67,9 @@ export const HomeSection: React.FC = () => {
       {/* 2-Column Responsive Bento Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start" id="home-bento-grid">
         
-        {/* Right Panel (Prayer times & Tasbeeh) - Order-2 on Mobile, Order-1 on RTL Desktop */}
+        {/* Right Panel (Prayer times) - Order-2 on Mobile, Order-1 on RTL Desktop */}
         <div className="lg:col-span-4 flex flex-col gap-6 order-2 lg:order-1" id="left-sidebar-panel">
           <PrayerTimesCard />
-          <MasbahaCard />
         </div>
 
         {/* Left Panel (Aya, Categories, Reading, Stats) - Order-1 on Mobile, Order-2 on Desktop */}
@@ -81,6 +80,9 @@ export const HomeSection: React.FC = () => {
 
           {/* 1.5 Hadith of the Day Banner */}
           <HadithOfTheDay />
+
+          {/* 1.6 Premium Quotes Generator (dynamic API + shareable images) */}
+          <PremiumQuotesSection embedded />
 
           {/* 1.75 Streak Card */}
           {settings.adhkarStreak.count > 0 && (
@@ -146,22 +148,26 @@ export const HomeSection: React.FC = () => {
             {/* Continue Reading Quran progress */}
             <QuranProgressCard />
 
-            {/* Daily Tip Card */}
+            {/* Daily Tip Card — two-tone split */}
             <div
-              className="rounded-3xl border border-amber-500/20 bg-amber-500/10 p-6 flex flex-col justify-between h-[180px] sm:h-auto transition-all duration-300 hover:shadow-md hover:border-amber-500/30"
+              className="group relative flex flex-col overflow-hidden rounded-3xl border border-border-custom shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg sm:flex-row"
               id="daily-tip-card"
             >
-              <div className="flex items-center gap-2 mb-3" id="daily-tip-header">
-                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-500/15 shrink-0">
-                  <Lightbulb className="h-5 w-5 text-amber-600" />
-                </div>
-                <h3 className="arabic-text text-sm font-bold text-amber-700">
-                  {isAr ? 'نصيحة اليوم' : 'Tip of the Day'}
-                </h3>
+              {/* Teal icon band */}
+              <div className="relative flex items-center justify-center bg-[#005c55] px-4 py-5 sm:w-28 sm:shrink-0">
+                <div className="pointer-events-none absolute -left-8 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+                <Lightbulb className="relative h-10 w-10 text-accent-gold drop-shadow" />
               </div>
-              <p className="arabic-text text-sm leading-relaxed text-text-primary line-clamp-4">
-                {isAr ? todayTip.textAr : todayTip.textEn}
-              </p>
+
+              {/* Content side */}
+              <div className="relative flex flex-1 flex-col justify-center bg-surface p-5">
+                <span className="arabic-text mb-2 text-xs font-bold uppercase tracking-wide text-amber-700">
+                  {isAr ? 'نصيحة اليوم' : 'Tip of the Day'}
+                </span>
+                <p className="arabic-text text-sm leading-relaxed text-text-primary">
+                  {isAr ? todayTip.textAr : todayTip.textEn}
+                </p>
+              </div>
             </div>
 
           </div>

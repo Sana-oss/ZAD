@@ -119,13 +119,7 @@ export interface UserSettings {
     verseNumber: number;
     progressPercentage: number;
   } | null;
-  masbahaCount: number;
-  masbahaPhrase: string;
-  misbahaStats: {
-    todayCount: number;
-    lastResetDate: string; // YYYY-MM-DD
-  };
-  quranViewMode: 'surah' | 'juz' | 'page' | 'mushaf';
+  quranViewMode: 'surah' | 'juz' | 'page';
   quranTheme?: 'white' | 'cream';
   adhkarStreak: {
     count: number;

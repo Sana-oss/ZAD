@@ -42,6 +42,25 @@ export const AdhanSettingsCard: React.FC = () => {
         soundOption: soundId,
       },
     });
+
+    // Instant feedback so the choice is audible/tangible right away.
+    if (soundStopTimerRef.current !== null) {
+      window.clearTimeout(soundStopTimerRef.current);
+      soundStopTimerRef.current = null;
+    }
+    adhanAudioService.stopSound();
+
+    const option = ADHAN_SOUND_OPTIONS.find((s) => s.id === soundId);
+    if (option?.audioUrl) {
+      setPlayingSound(soundId);
+      adhanAudioService.setVolume(volume);
+      void adhanAudioService.playSound(soundId, option.audioUrl);
+      soundStopTimerRef.current = window.setTimeout(() => setPlayingSound(null), 30000);
+    } else {
+      setPlayingSound(null);
+      // 'vibration' gets an immediate haptic demo; silent/none stay quiet by design.
+      void adhanAudioService.playSound(soundId);
+    }
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -248,7 +267,7 @@ export const AdhanSettingsCard: React.FC = () => {
       </div>
 
       <p className="mt-6 text-xs text-text-secondary text-center">
-        سيتم تشغيل الأذان المختار عند حلول وقت الصلاة
+        سيتم تشغيل الأذان المختار عند حلول وقت الصلاة ما دام التطبيق مفتوحاً
       </p>
     </div>
   );

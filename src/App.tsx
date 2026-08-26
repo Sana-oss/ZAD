@@ -14,9 +14,11 @@ import { PrayerTimesCard } from './components/PrayerTimesCard';
 import { SettingsSection } from './components/SettingsSection';
 import { Footer } from './components/Footer';
 import { AudioPlayer } from './components/AudioPlayer';
+import { useAdhanScheduler } from './hooks/useAdhanScheduler';
 
 const AppContent: React.FC = () => {
   const { activeTab, settings } = useApp();
+  useAdhanScheduler();
 
   const renderActiveSection = () => {
     switch (activeTab) {

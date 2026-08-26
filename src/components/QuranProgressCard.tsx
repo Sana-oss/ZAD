@@ -1,18 +1,17 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { BookOpen } from 'lucide-react';
+import { getSurahNameAr } from '../services/quranService';
 
 export const QuranProgressCard: React.FC = () => {
-  const { settings, setActiveTab, setQuranSearchQuery } = useApp();
+  const { settings, setActiveTab, setQuranContinueTarget } = useApp();
 
   const isAr = settings.language === 'ar';
   const progress = settings.quranProgress;
 
   const handleContinueReading = () => {
     setActiveTab('quran');
-    if (progress?.surahName) {
-      setQuranSearchQuery(progress.surahName);
-    }
+    setQuranContinueTarget({ surahNumber: progress.surahNumber, verseNumber: progress.verseNumber });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -48,8 +47,8 @@ export const QuranProgressCard: React.FC = () => {
         <p className="arabic-text text-xs font-semibold text-text-secondary leading-relaxed mt-1">
           {progress
             ? (isAr
-                ? `لقد توقفت عند سورة ${progress.surahName} - الآية ${progress.verseNumber}. هل تود إكمال القراءة الآن؟`
-                : `You stopped at Surah ${progress.surahName} - Verse ${progress.verseNumber}. Continue reading?`)
+                 ? `لقد توقفت عند سورة ${getSurahNameAr(progress.surahNumber)} - الآية ${progress.verseNumber}. هل تود إكمال القراءة الآن؟`
+                 : `You stopped at Surah ${getSurahNameAr(progress.surahNumber)} - Verse ${progress.verseNumber}. Continue reading?`)
             : (isAr
                 ? 'لم تبدأ القراءة بعد. اضغط لبدء رحلتك مع القرآن الكريم.'
                 : "You haven't started reading yet. Tap to begin your journey with the Quran.")}
