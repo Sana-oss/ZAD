@@ -5,15 +5,20 @@ class AdhanAudioService {
   private static audioElement: HTMLAudioElement | null = null;
   private static volumeLevel = 80; // percent — kept here so it applies even before the element exists.
 
+  /** Prefix a relative audio path with the app base path (e.g. /ZAD/ on GH Pages). */
+  private static prefixBase(url: string): string {
+    // Absolute / inline / object URLs are used as-is.
+    if (/^(https?:|data:|blob:)/.test(url)) return url;
+    // Relative paths must be prefixed with the app base path.
+    const base = import.meta.env.BASE_URL || '/';
+    return base + url.replace(/^\//, '');
+  }
+
   /** Resolve the audio file for a saved sound option id ('makkah', 'vibration', ...). */
   static resolveUrl(soundId: string): string | undefined {
     const url = ADHAN_SOUND_OPTIONS.find((s) => s.id === soundId)?.audioUrl;
     if (!url) return undefined;
-    // Absolute / inline / object URLs are used as-is.
-    if (/^(https?:|data:|blob:)/.test(url)) return url;
-    // Relative paths must be prefixed with the app base path (e.g. /ZAD/ on GH Pages).
-    const base = import.meta.env.BASE_URL || '/';
-    return base + url.replace(/^\//, '');
+    return AdhanAudioService.prefixBase(url);
   }
 
   static supportsVibration(): boolean {
@@ -38,7 +43,11 @@ class AdhanAudioService {
         return;
       }
 
-      const url = audioUrl ?? AdhanAudioService.resolveUrl(soundId);
+      // When an explicit URL is supplied (e.g. from the settings preview buttons) it
+      // is a raw relative path and still needs the base prefix on GH Pages.
+      const url = audioUrl
+        ? AdhanAudioService.prefixBase(audioUrl)
+        : AdhanAudioService.resolveUrl(soundId);
       if (!url) {
         return;
       }
@@ -77,14 +86,33 @@ class AdhanAudioService {
 
   /**
    * Warm up audio on the first user gesture so later programmatic playback
-   * (at prayer time) is allowed by browser autoplay policies.
+   * (at prayer time) is allowed by browser autoplay policies. We prime the
+   * persistent HTMLAudioElement (the one actually used for playback) rather
+   * than a throwaway AudioContext, since the latter does not arm the element.
    */
   static unlock(): void {
     try {
-      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (Ctx) {
-        const ctx = new Ctx();
-        void ctx.resume().finally(() => void ctx.close());
+      if (!AdhanAudioService.audioElement) {
+        AdhanAudioService.audioElement = new Audio();
+        AdhanAudioService.audioElement.preload = 'auto';
+        AdhanAudioService.audioElement.volume = Math.min(Math.max(AdhanAudioService.volumeLevel / 100, 0), 1);
+      }
+      const audio = AdhanAudioService.audioElement;
+      const url = AdhanAudioService.resolveUrl('makkah');
+      if (url) {
+        // Muted silent playback inside the gesture arms the element for
+        // sticky-activation policies without an audible blip.
+        audio.muted = true;
+        audio.src = url;
+        void audio
+          .play()
+          .then(() => {
+            audio.pause();
+            audio.muted = false;
+          })
+          .catch(() => {
+            audio.muted = false;
+          });
       }
     } catch {
       // ignore — best effort only
