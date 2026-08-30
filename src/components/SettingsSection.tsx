@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Capacitor } from '@capacitor/core';
 import { useApp } from '../context/AppContext';
 import { ensureNotificationPermission } from '../services/notify';
+import { ensureNativeNotificationPermission } from '../services/nativeNotificationService';
+import { GetZadSection } from './GetZadSection';
 import { Sun, Moon, Bell, Sparkles } from 'lucide-react';
 
 export const SettingsSection: React.FC = () => {
@@ -128,7 +131,9 @@ export const SettingsSection: React.FC = () => {
               <button
                 onClick={async () => {
                   if (!settings.prayerNotifications) {
-                    const granted = await ensureNotificationPermission();
+                    const granted = Capacitor.isNativePlatform()
+                      ? await ensureNativeNotificationPermission()
+                      : await ensureNotificationPermission();
                     updateSettings({ prayerNotifications: granted });
                   } else {
                     updateSettings({ prayerNotifications: false });
@@ -186,6 +191,9 @@ export const SettingsSection: React.FC = () => {
 
           </div>
         </div>
+
+        {/* Get ZAD — Web/PWA + Android download */}
+        <GetZadSection />
 
       </div>
 

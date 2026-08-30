@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { useApp } from '../context/AppContext';
 import {
   PrayerTimesService,
@@ -26,6 +27,7 @@ const nowMsOfDay = (d: Date): number =>
  */
 export const useAdhanScheduler = (): void => {
   const { settings } = useApp();
+  const isNative = Capacitor.isNativePlatform();
 
   const [prayers, setPrayers] = useState<PrayerTime[] | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -73,6 +75,7 @@ export const useAdhanScheduler = (): void => {
 
   // The scheduler loop: fire each enabled prayer exactly once as its time is crossed.
   useEffect(() => {
+    if (isNative) return;
     const timer = window.setInterval(() => {
       const now = new Date();
       const nowMs = nowMsOfDay(now);

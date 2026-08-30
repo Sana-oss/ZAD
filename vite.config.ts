@@ -5,7 +5,10 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: '/ZAD/',
+    // Default keeps the existing GitHub Pages subpath deployment (/ZAD/).
+    // For native Capacitor builds use `vite build --base=./` (see build:native script)
+    // so assets resolve from the webview root.
+    base: process.env.VITE_BASE || '/ZAD/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

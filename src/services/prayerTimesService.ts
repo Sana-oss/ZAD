@@ -1,4 +1,5 @@
 import { PrayerTime } from '../types';
+import { Capacitor } from '@capacitor/core';
 
 export interface LocationCoords {
   latitude: number;
@@ -137,8 +138,93 @@ export class AladhanPrayerTimesProvider {
   }
 }
 
+export type LocationPermissionState =
+  | 'granted'
+  | 'denied'
+  | 'prompt'
+  | 'prompt-with-rationale'
+  | 'permanently-denied'
+  | 'unknown';
+
 export class GeolocationService {
+  /**
+   * True only when running inside a native Android/iOS Capacitor shell that
+   * exposes the Geolocation plugin. On the Web/PWA we keep using the browser's
+   * navigator.geolocation, so the two systems never run at the same time.
+   */
+  private isNative(): boolean {
+    return Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Geolocation');
+  }
+
   getCurrentPosition(): Promise<LocationCoords> {
+    return this.isNative()
+      ? this.getCurrentPositionNative()
+      : this.getCurrentPositionWeb();
+  }
+
+  /** Check the current native permission state (no-op / 'unknown' on Web). */
+  async checkLocationPermission(): Promise<LocationPermissionState> {
+    if (!this.isNative()) return 'unknown';
+    try {
+      const { Geolocation } = await import('@capacitor/geolocation');
+      const status = await Geolocation.checkPermissions();
+      return this.normalizePermission(status.location);
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  /**
+   * Request the location permission on native. Returns 'granted' once allowed,
+   * 'permanently-denied' when the OS refuses to show a prompt (already denied),
+   * or 'denied' otherwise.
+   */
+  async requestLocationPermission(): Promise<LocationPermissionState> {
+    if (!this.isNative()) return 'unknown';
+    const { Geolocation } = await import('@capacitor/geolocation');
+    const before = await Geolocation.checkPermissions();
+    if (this.isGranted(before.location)) return 'granted';
+    const after = await Geolocation.requestPermissions();
+    if (this.isGranted(after.location)) return 'granted';
+    // If it was already denied before we asked, the OS will not show a prompt.
+    return before.location === 'denied' ? 'permanently-denied' : 'denied';
+  }
+
+  private isGranted(state: string): boolean {
+    return state === 'granted' || state === 'whenInUse' || state === 'always';
+  }
+
+  private normalizePermission(state: string): LocationPermissionState {
+    if (this.isGranted(state)) return 'granted';
+    if (state === 'denied') return 'denied';
+    if (state === 'prompt-with-rationale') return 'prompt-with-rationale';
+    if (state === 'prompt') return 'prompt';
+    return 'unknown';
+  }
+
+  private async getCurrentPositionNative(): Promise<LocationCoords> {
+    const { Geolocation } = await import('@capacitor/geolocation');
+    const state = await this.requestLocationPermission();
+    if (state === 'permanently-denied') {
+      throw new LocationError(
+        1,
+        'Location permission permanently denied. Enable it in Android Settings → Apps → ZAD → Permissions → Location.',
+      );
+    }
+    if (state !== 'granted') {
+      throw new LocationError(1, 'Location permission denied');
+    }
+    const pos = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: false,
+      timeout: 15000,
+    });
+    return {
+      latitude: pos.coords.latitude,
+      longitude: pos.coords.longitude,
+    };
+  }
+
+  private getCurrentPositionWeb(): Promise<LocationCoords> {
     return new Promise<LocationCoords>((resolve, reject) => {
       if (!('geolocation' in navigator)) {
         reject(new LocationError(2, 'Geolocation not supported'));

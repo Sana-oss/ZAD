@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Release binaries are uploaded to GitHub Releases, never committed
+releases/*.apk
+releases/*.aab

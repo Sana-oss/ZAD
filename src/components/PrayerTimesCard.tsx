@@ -17,6 +17,7 @@ import {
 import { QiblaCompass } from './QiblaCompass';
 import { AdhanSettingsCard } from './AdhanSettingsCard';
 import { PrayerTime } from '../types';
+import { Capacitor } from '@capacitor/core';
 
 const service = new PrayerTimesService();
 
@@ -40,8 +41,9 @@ const LOCATION_STATUS_MESSAGE: Record<LocationStatus, string | null> = {
   idle: null,
   loading: 'جارٍ تحديد موقعك...',
   success: null,
-  'permission-denied':
-    'تعذر الوصول إلى موقعك بسبب رفض الإذن. تم استخدام موقع افتراضي (الرياض). يمكنك تحديث الإذن من إعدادات المتصفح.',
+  'permission-denied': Capacitor.isNativePlatform()
+    ? 'تعذر الوصول إلى موقعك بسبب رفض الإذن. مكّن الموقع من إعدادات أندرويد: الإعدادات ← التطبيقات ← ZAD ← الأذونات ← الموقع.'
+    : 'تعذر الوصول إلى موقعك بسبب رفض الإذن. يمكنك تحديث الإذن من إعدادات المتصفح.',
   error: 'تعذر تحديد موقعك. تم استخدام موقع افتراضي (الرياض).',
 };
 
@@ -118,11 +120,14 @@ export const PrayerTimesCard: React.FC = () => {
         },
       });
     } catch (err) {
+      const isPermDenied = LocationError.isPermissionDenied(err);
       setState((prev) => ({
         ...prev,
-        coords: DEFAULT_LOCATION,
-        cityName: DEFAULT_LOCATION.cityName || prev.cityName,
-        locationStatus: LocationError.isPermissionDenied(err) ? 'permission-denied' : 'error',
+        // On permission denial, do NOT silently pretend Riyadh is the user's location.
+        // Keep the previous (saved/default) coordinates and surface a permission-denied message.
+        coords: isPermDenied ? prev.coords : DEFAULT_LOCATION,
+        cityName: isPermDenied ? prev.cityName : DEFAULT_LOCATION.cityName || prev.cityName,
+        locationStatus: isPermDenied ? 'permission-denied' : 'error',
         loading: false,
       }));
     }

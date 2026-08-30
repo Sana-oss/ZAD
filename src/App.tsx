@@ -15,10 +15,12 @@ import { SettingsSection } from './components/SettingsSection';
 import { Footer } from './components/Footer';
 import { AudioPlayer } from './components/AudioPlayer';
 import { useAdhanScheduler } from './hooks/useAdhanScheduler';
+import { useNativePrayerNotifications } from './hooks/useNativePrayerNotifications';
 
 const AppContent: React.FC = () => {
   const { activeTab, settings } = useApp();
   useAdhanScheduler();
+  useNativePrayerNotifications();
 
   const renderActiveSection = () => {
     switch (activeTab) {

@@ -42,6 +42,14 @@ export const Footer: React.FC = () => {
           >
             {isAr ? 'سياسة الخصوصية' : 'Privacy Policy'}
           </a>
+          <a
+            href="#android-app"
+            onClick={(e) => { e.preventDefault(); handleLinkClick('settings', e); }}
+            className="text-xs font-semibold text-text-secondary hover:text-primary transition-colors arabic-text"
+            id="link-android-app"
+          >
+            {isAr ? 'تطبيق أندرويد' : 'Android App'}
+          </a>
         </div>
 
         {/* Right Side (RTL: Left side): Brand & copyright */}
